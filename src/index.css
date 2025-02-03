@@ -1,0 +1,149 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import "tailwindcss";
+@import 'tailwindcss/theme';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@theme {
+  --orange: rgb(250, 74, 25);
+  --purple: rgb(91, 79, 245);
+  --darker-purple: rgb(59, 35, 241);
+  --lighter-purple: rgb(222, 221, 253);
+  --red: rgb(219, 0, 0);
+  --darker-red: rgb(169, 0, 0);
+  --lighter-black: rgb(21, 21, 21);
+}
+
+html {
+  font-family: 'Inter', sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 12px !important;
+  user-select: none;
+}
+
+.btn {
+  border-radius: 9999px;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-kerning: auto;
+  font-size: 12px !important;
+  height: 40px;
+  line-height: 18px;
+  letter-spacing: 0.825852px;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding: 0 22px;
+}
+
+#app-title {
+  font-weight: 700;
+  font-stretch: 100%;
+  font-kerning: auto;
+  font-size: 12px !important;
+  line-height: 18px;
+  letter-spacing: 0.825852px;
+  text-transform: uppercase;
+  text-decoration: none;
+  background: linear-gradient(to right, var(--darker-purple), var(--orange) 75%);
+}
+
+.back-btn {
+  border-color: var(--purple);
+  border-style: solid;
+  border-width: 2px;
+  background-color: white;
+  color: var(--lighter-black);
+}
+
+.back-btn:hover {
+  background-color: var(--lighter-purple);
+  cursor: pointer;
+}
+
+.continue-btn {
+  background-color: var(--purple);
+  color: white;
+}
+
+.continue-btn:disabled, .continue-btn:disabled:hover {
+  color: rgb(226 232 240);
+  background-color: rgb(100 116 139);
+}
+
+.continue-btn:hover, .continue-btn:hover:enabled {
+  color: white;
+  background-color: var(--darker-purple);
+  cursor: pointer;
+}
+
+input {
+  font-size: 14px;
+}
+
+input:not([type="text"]):hover {
+  cursor: pointer;
+}
+
+input[type="text"] {
+  flex-basis: 100%;
+  border: 1px solid black;
+  border-radius: 9999px;
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 0.375rem;
+}
+
+input[type="text"]:focus {
+  border: 1px solid var(--orange);
+}
+
+input[type="radio"] {
+  padding: 8px;
+}
+
+input[type="radio"], input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.input-container {
+  height: 32px;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.input-container:hover {
+  background-color: var(--lighter-purple);
+}
+
+.input-container {
+  cursor: pointer;
+}
+
+label {
+  font-size: 14px;
+}
+
+#api-key-label {
+  font-size: 16px;
+}
+
+h1 {
+  font-size: 2rem;
+}
+
+/* Animation code from: https://www.w3schools.com/howto/howto_css_loader.asp */
+#loading-span {
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid var(--orange);
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
