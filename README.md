@@ -1,6 +1,6 @@
 # Content Export Tool
 
-This custom app allows for users to export their content to an Excel or CSV file. The user can choose the content types they want exported and the workflow step the content items are in.
+This custom app allows for users to export their content to an Excel or CSV file. The user can choose the content types of the items they want to export and the workflow step the content items are in.
 
 ## Deploying
 
