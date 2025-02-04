@@ -4,7 +4,8 @@ import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
 import fetchItems from './utils/fetch-items';
 import fetchTypes from './utils/fetch-types';
-import { IContentType } from '@kontent-ai/delivery-sdk';
+import { IContentType, ILanguage } from '@kontent-ai/delivery-sdk';
+import fetchLanguages from './utils/fetch-languages';
 
 interface RequestBuilderProps {
   response: CustomAppContext,
@@ -19,6 +20,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
   let environmentId: string;
 
   const [contentTypes, setContentTypes] = useState<Array<IContentType>>();
+  const [languages, setLanguages] = useState<Array<ILanguage>>();
   const [apiKey, setAPIKey] = useState<string>('');
   const [validAPIKey, setValidAPIKey] = useState<boolean>(false);
   
@@ -38,14 +40,15 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
       setAPIKey(keyInput.value);
     }
     else {
-      const selectedFileTypeInput = document.querySelector('input[name="file-type"]:checked') as HTMLInputElement;
-      const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+      const selectedTypes = document.querySelectorAll('input[type="checkbox"]:checked');
+      const selectedLanguage = document.querySelector('input[name="language"]:checked') as HTMLInputElement;
       const selectedWorkflowStep = document.querySelector('input[name="content-workflow-step"]:checked') as HTMLInputElement;
+      const selectedFileTypeInput = document.querySelector('input[name="file-type"]:checked') as HTMLInputElement;
       
-      if (checkboxes.length > 0) {
+      if (selectedTypes.length > 0) {
         const types: Array<string>= [];
 
-        checkboxes.forEach((checkbox) => {
+        selectedTypes.forEach((checkbox) => {
           if ((checkbox as HTMLInputElement).value !== 'select-all') types.push((checkbox as HTMLInputElement).value);
         });
   
@@ -53,7 +56,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
   
         if (selectedFileTypeInput) selectedFileType = selectedFileTypeInput.value;
   
-        fetchItems(environmentId, apiKey, types, selectedWorkflowStep.value).then(async (data) => {
+        fetchItems(environmentId, apiKey, types, selectedLanguage.value, selectedWorkflowStep.value).then(async (data) => {
           if (data.items.length > 0) {
             const workflowStepError = document.getElementById('workflow-step-error') as HTMLElement;
             if (workflowStepError) workflowStepError.style.display = 'none';
@@ -137,6 +140,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
     setValidAPIKey(false);
     setAPIKey('');
     setContentTypes([]);
+    setLanguages([]);
   }
 
   useEffect(() => {
@@ -179,6 +183,19 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
           setContentTypes(response.items);
         }
       })
+
+      fetchLanguages(environmentId, apiKey).then(async (response) => {
+        if (response === 'error') {
+          if (apiKey !== '') {
+            if (apiKeyError) apiKeyError.style.display = 'block';
+          }
+        }
+        else {
+          if (contentTypeError) contentTypeError.style.display = 'none';
+          if (loadingContainer) loadingContainer.style.display = 'none';
+          setLanguages(response.items);
+        }
+      })
     }
 
     const checkboxes = document.querySelectorAll('input[type="checkbox"]');
@@ -201,7 +218,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
             <fieldset className='basis-full flex flex-wrap mb-6'>
               <div className='basis-full flex mb-3 relative'>
                 <legend className='font-bold text-[16px]'>
-                  Content types 
+                  Content types
                   <span className='tooltip-icon' title='These are the content types of the items that will be exported.'>ⓘ</span>
                 </legend>
                 <p id='content-type-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[150px]'>Please select at least one content type to export.</p>
@@ -220,6 +237,28 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
                         <label htmlFor={type.system.codename} className='input-container flex place-items-center'>
                           <input type='checkbox' className='mr-[8px] accent-(--purple)' id={type.system.codename} value={type.system.codename}/>
                           {type.system.name}
+                        </label>
+                      </div>
+                    )
+                : <p>No content types found.</p>
+              }
+              </div>
+            </fieldset>
+            <fieldset className='basis-full flex flex-wrap mb-6'>
+              <div className='basis-full flex mb-3 relative'>
+                <legend className='font-bold text-[16px]'>
+                  Language
+                  <span className='tooltip-icon' title='These are the languages your content items can be exported in.'>ⓘ</span>
+                </legend>
+              </div>
+              <div className='flex flex-wrap'>
+              {
+                languages !== null && languages !== undefined  ?
+                    languages.map((lang, index) =>
+                      <div className={`flex basis-full ${index === languages.length - 1 ? 'mb-6' : 'mb-3'}`} key={`${lang.system.codename}-container`}>
+                        <label htmlFor={lang.system.codename} className='input-container flex place-items-center'>
+                          <input type='radio' name='language' className='mr-[8px] accent-(--purple)' id={lang.system.codename} value={lang.system.codename} required={true}/>
+                          {lang.system.name}
                         </label>
                       </div>
                     )
@@ -275,7 +314,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
               </div>
             </fieldset>
             <div className='justify-self-end h-[60px] basis-full flex place-items-end justify-between'>
-              <button id='back-btn' type='button' className='btn back-btn' onClick={() => handleBackBtn()}>Back</button>
+              <button id='back-btn' type='button' className='btn back-btn' onClick={() => handleBackBtn()}>Change API key</button>
               <button type='submit' className='btn continue-btn'>Export content</button>
             </div>
           </form>

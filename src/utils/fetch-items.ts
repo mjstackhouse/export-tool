@@ -1,13 +1,15 @@
 // import deliveryClient from './delivery-client';
 import createDeliveryClientContainer from './delivery-client';
 
-export default async function fetchItems(environmentId: string, apiKey: string, types: Array<string>, workflowStep: string) {
+export default async function fetchItems(environmentId: string, apiKey: string, types: Array<string>, language: string, workflowStep: string) {
   let deliveryClient = await createDeliveryClientContainer(environmentId, apiKey);
 
   if (workflowStep === 'published') {
     const response = await deliveryClient.items()
     .orderByAscending('system.type')
     .types(types)
+    .languageParameter(language)
+    .equalsFilter('system.language', language)
     .equalsFilter('system.workflow_step', 'published')
     .toPromise();
 
@@ -17,6 +19,8 @@ export default async function fetchItems(environmentId: string, apiKey: string, 
     const response = await deliveryClient.items()
     .orderByAscending('system.type')
     .types(types)
+    .languageParameter(language)
+    .equalsFilter('system.language', language)
     .equalsFilter('system.workflow_step', 'draft')
     .toPromise();
 
@@ -26,6 +30,8 @@ export default async function fetchItems(environmentId: string, apiKey: string, 
     const response = await deliveryClient.items()
     .orderByAscending('system.type')
     .types(types)
+    .languageParameter(language)
+    .equalsFilter('system.language', language)
     .toPromise();
 
     return response.data;
