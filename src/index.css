@@ -129,6 +129,18 @@ label {
   font-size: 16px;
 }
 
+.tooltip-icon {
+  border-radius: 4px;
+  width: 24px;
+  padding: 3px 4px;
+  line-height: 20px;
+  margin-left: 0.35rem;
+}
+
+.tooltip-icon:hover {
+  background-color: rgba(21, 21, 21, 0.1);
+}
+
 h1 {
   font-size: 2rem;
 }

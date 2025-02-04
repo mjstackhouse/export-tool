@@ -143,7 +143,9 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
     const apiKeyError = document.getElementById('api-key-error') as HTMLElement;
     const workflowStepError = document.getElementById('workflow-step-error') as HTMLElement;
     const contentTypeError = document.getElementById('content-type-error') as HTMLElement;
+    const loadingContainer = document.getElementById('loading-container') as HTMLElement;
             
+    if (loadingContainer) loadingContainer.style.display = 'flex';
     if (apiKeyError) apiKeyError.style.display = 'none';
     if (workflowStepError) workflowStepError.style.display = 'none';
     if (contentTypeError) contentTypeError.style.display = 'none';
@@ -153,8 +155,16 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
         const config = response.config as Config;
         if (config.deliveryKey) {
           if (contentTypeError) contentTypeError.style.display = 'none';
+          const backBtn = document.getElementById('back-btn');
+          if (backBtn) backBtn.style.display = 'none';
           setAPIKey(config.deliveryKey);
         }
+        else {
+          if (loadingContainer) loadingContainer.style.display = 'none';
+        }
+      }
+      else {
+        if (loadingContainer) loadingContainer.style.display = 'none';
       }
       fetchTypes(environmentId, apiKey).then(async (response) => {
         if (response === 'error') {
@@ -164,6 +174,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
         }
         else {
           if (contentTypeError) contentTypeError.style.display = 'none';
+          if (loadingContainer) loadingContainer.style.display = 'none';
           setValidAPIKey(true);
           setContentTypes(response.items);
         }
@@ -189,8 +200,11 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
           <form className='basis-full flex flex-wrap place-content-start divide-y divide-solid divide-gray-300' onSubmit={(e) => handleSubmit(e, 'export')}>
             <fieldset className='basis-full flex flex-wrap mb-6'>
               <div className='basis-full flex mb-3 relative'>
-                <legend className='font-bold text-[16px]'>Content types</legend>
-                <p id='content-type-error' className='absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[200px]'>Please select at least one content type to export.</p>
+                <legend className='font-bold text-[16px]'>
+                  Content types 
+                  <span className='tooltip-icon' title='These are the content types of the items that will be exported.'>ⓘ</span>
+                </legend>
+                <p id='content-type-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[200px]'>Please select at least one content type to export.</p>
               </div>
               <div className='basis-full flex mb-3'>
                 <label htmlFor='select-all' className='input-container flex place-items-center'>
@@ -202,7 +216,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
               {
                 contentTypes !== null && contentTypes !== undefined  ?
                     contentTypes.map((type, index) =>
-                      <div className={`flex basis-full ${index === contentTypes.length - 1 ? 'mb-6' : 'mb-3'}`}>
+                      <div className={`flex basis-full ${index === contentTypes.length - 1 ? 'mb-6' : 'mb-3'}`} key={`${type.system.codename}-container`}>
                         <label htmlFor={type.system.codename} className='input-container flex place-items-center'>
                           <input type='checkbox' className='mr-[8px] accent-(--purple)' id={type.system.codename} value={type.system.codename}/>
                           {type.system.name}
@@ -215,7 +229,10 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
             </fieldset>
             <fieldset className='basis-full flex flex-wrap mb-6'>
               <div className='relative basis-full flex mb-3'>
-                <legend className='font-bold text-[16px]' title="Be sure to choose a workflow step that your selected content type(s) are available in. If they are not available, they will not be exported.">Workflow step</legend>
+                <legend className='font-bold text-[16px]'>
+                  Workflow step
+                  <span className='tooltip-icon' title='Be sure to choose a workflow step that your selected content type(s) items are available in. If they are not available, they will not be exported.'>ⓘ</span>
+                </legend>
                 <p id='workflow-step-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[125px]'>No items of the selected content type(s) are available in the selected workflow step. Please choose another workflow step or content type(s).</p>
               </div>
               <div className='basis-full flex mb-3'>
@@ -239,7 +256,10 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
             </fieldset>
             <fieldset className='basis-full flex flex-wrap border-none mb-6'>
               <div className='basis-full flex mb-3'>
-                <legend className='font-bold text-[16px]'>File type</legend>
+                <legend className='font-bold text-[16px]'>
+                  File type
+                  <span className='tooltip-icon' title='If you choose Excel, then your selected content types will be organized into their own worksheets and exported within a single spreadsheet. If you choose CSV, then your selected content types will be contained within their own CSV files, and exported together as a ZIP file.'>ⓘ</span>
+                </legend>
               </div>
               <div className='basis-full flex mb-3'>
                 <label htmlFor='excel-radio-btn' className='input-container flex place-items-center'>
@@ -255,16 +275,23 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
               </div>
             </fieldset>
             <div className='justify-self-end h-[60px] basis-full flex place-items-end justify-between'>
-              <button type='button' className='btn back-btn' onClick={() => handleBackBtn()}>Back</button>
+              <button id='back-btn' type='button' className='btn back-btn' onClick={() => handleBackBtn()}>Back</button>
               <button type='submit' className='btn continue-btn'>Export content</button>
             </div>
           </form>
           :
           <form onSubmit={(e) => handleSubmit(e, 'api-key')} className='basis-full flex flex-wrap place-content-start'>
+            <div id='loading-container' className='basis-full fixed bg-white z-10 top-0 bottom-0 left-0 right-0 flex place-items-center'>
+              <div className='basis-full flex flex-wrap'>
+                <div className='basis-full flex place-content-center'>
+                  <span id='loading-span' className='text-6xl'></span>
+                </div>
+              </div>
+            </div>
             <div className='relative basis-full flex flex-wrap place-items-start mb-12'>
               <label id='api-key-label' htmlFor='api-key' className='basis-full text-left mb-3 font-bold focus:border-color-(--orange)'>Delivery Preview API key</label>
               <input type='text' id='api-key' name='api-key' required={true}/>
-              <p id='api-key-error' className='absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg top-[5.5rem]'>Please make sure the API key is valid in your current environment.</p>
+              <p id='api-key-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg top-[5.5rem]'>Please make sure the API key is valid in your current environment.</p>
             </div>
             <div className='justify-self-end h-[60px] basis-full text-right'>
               <button type='submit' className='btn continue-btn place-self-end'>Continue</button>
