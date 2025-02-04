@@ -204,7 +204,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
                   Content types 
                   <span className='tooltip-icon' title='These are the content types of the items that will be exported.'>ⓘ</span>
                 </legend>
-                <p id='content-type-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[200px]'>Please select at least one content type to export.</p>
+                <p id='content-type-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[150px]'>Please select at least one content type to export.</p>
               </div>
               <div className='basis-full flex mb-3'>
                 <label htmlFor='select-all' className='input-container flex place-items-center'>
@@ -233,7 +233,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
                   Workflow step
                   <span className='tooltip-icon' title='Be sure to choose a workflow step that your selected content type(s) items are available in. If they are not available, they will not be exported.'>ⓘ</span>
                 </legend>
-                <p id='workflow-step-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[125px]'>No items of the selected content type(s) are available in the selected workflow step. Please choose another workflow step or content type(s).</p>
+                <p id='workflow-step-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[150px]'>No items of the selected content type(s) are available in the selected workflow step. Please choose another workflow step or content type(s).</p>
               </div>
               <div className='basis-full flex mb-3'>
                 <label htmlFor='published-radio-btn' className='input-container flex place-items-center'>
