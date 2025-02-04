@@ -58,8 +58,8 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
   
         fetchItems(environmentId, apiKey, types, selectedLanguage.value, selectedWorkflowStep.value).then(async (data) => {
           if (data.items.length > 0) {
-            const workflowStepError = document.getElementById('workflow-step-error') as HTMLElement;
-            if (workflowStepError) workflowStepError.style.display = 'none';
+            const noItemsError = document.getElementById('no-items-error') as HTMLElement;
+            if (noItemsError) noItemsError.style.display = 'none';
 
             const itemsValues = data.items.map((item) => Object.entries(item.elements).map(obj => (obj[1].type !== 'modular_content' && obj[1].type !== 'asset' && obj[1].type !== 'taxonomy' && obj[1].type !== 'multiple_choice' ? obj[1].value : (obj[1].type === 'modular_content' ? obj[1].value.join(',') : (obj[1].type === 'asset' ? obj[1].value.map((asset: { url: string; }) => asset.url).join(',') : obj[1].value.map((val: { name: string; }) => val.name).join(','))))));
             const items = data.items.map((item) => Object.entries(item.elements).map(obj => ({ [obj[0]]: obj[1].value })));
@@ -124,8 +124,8 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
             }
           }
           else {
-            const workflowStepError = document.getElementById('workflow-step-error') as HTMLElement;
-            if (workflowStepError) workflowStepError.style.display = 'block';
+            const noItemsError = document.getElementById('no-items-error') as HTMLElement;
+            if (noItemsError) noItemsError.style.display = 'block';
           }
         })
       }
@@ -145,13 +145,13 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
 
   useEffect(() => {
     const apiKeyError = document.getElementById('api-key-error') as HTMLElement;
-    const workflowStepError = document.getElementById('workflow-step-error') as HTMLElement;
+    const noItemsError = document.getElementById('no-items-error') as HTMLElement;
     const contentTypeError = document.getElementById('content-type-error') as HTMLElement;
     const loadingContainer = document.getElementById('loading-container') as HTMLElement;
             
     if (loadingContainer) loadingContainer.style.display = 'flex';
     if (apiKeyError) apiKeyError.style.display = 'none';
-    if (workflowStepError) workflowStepError.style.display = 'none';
+    if (noItemsError) noItemsError.style.display = 'none';
     if (contentTypeError) contentTypeError.style.display = 'none';
 
     if (response.isError === false) {
@@ -214,7 +214,8 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
     <div className='flex flex-wrap basis-full'>
       {
         validAPIKey === true ?
-          <form className='basis-full flex flex-wrap place-content-start divide-y divide-solid divide-gray-300' onSubmit={(e) => handleSubmit(e, 'export')}>
+          <form className='basis-full relative flex flex-wrap place-content-start divide-y divide-solid divide-gray-300' onSubmit={(e) => handleSubmit(e, 'export')}>
+            <p id='no-items-error' className='hidden fixed bg-(--red) text-white px-2 py-[0.25rem] rounded-lg top-[72px] inset-x-[25%] z-10'>No items are available with the selected filters. Please change your selected filters.</p>
             <fieldset className='basis-full flex flex-wrap mb-6'>
               <div className='basis-full flex mb-3 relative'>
                 <legend className='font-bold text-[16px]'>
@@ -272,7 +273,6 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
                   Workflow step
                   <span className='tooltip-icon' title='Be sure to choose a workflow step that your selected content type(s) items are available in. If they are not available, they will not be exported.'>ⓘ</span>
                 </legend>
-                <p id='workflow-step-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[150px]'>No items of the selected content type(s) are available in the selected workflow step. Please choose another workflow step or content type(s).</p>
               </div>
               <div className='basis-full flex mb-3'>
                 <label htmlFor='published-radio-btn' className='input-container flex place-items-center'>
