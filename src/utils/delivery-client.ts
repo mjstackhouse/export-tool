@@ -11,7 +11,7 @@ export default function createDeliveryClientContainer(environmentId: string, api
         usePreviewMode: true
       },
       previewApiKey: apiKey,
-      globalHeaders: (queryConfig) => {
+      globalHeaders: (_queryConfig) => {
         return [
           {
             header: 'X-KC-Wait-For-Loading-New-Content',
@@ -25,7 +25,7 @@ export default function createDeliveryClientContainer(environmentId: string, api
     deliveryClient = createDeliveryClient({
       environmentId: environmentId,
       defaultLanguage: 'en-US',
-      globalHeaders: (queryConfig) => {
+      globalHeaders: (_queryConfig) => {
         return [
           {
             header: 'X-KC-Wait-For-Loading-New-Content',
