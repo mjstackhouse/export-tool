@@ -11,6 +11,7 @@ export default function createDeliveryClientContainer(environmentId: string, api
         usePreviewMode: true
       },
       previewApiKey: apiKey,
+      secureApiKey: apiKey,
       globalHeaders: (_queryConfig) => {
         return [
           {
