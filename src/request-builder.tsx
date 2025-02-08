@@ -484,7 +484,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
               </div>
               <div className='basis-full flex mb-3'>
                 <label htmlFor='excel-radio-btn' className='input-container flex place-items-center'>
-                  <input type='radio' id='excel-radio-btn' className='mr-[8px] accent-(--purple)' name='file-type' value={'excel'} />
+                  <input type='radio' id='excel-radio-btn' className='mr-[8px] accent-(--purple)' name='file-type' value={'excel'} required={true} />
                   Excel
                 </label>
               </div>
