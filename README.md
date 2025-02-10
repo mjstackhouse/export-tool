@@ -2,6 +2,8 @@
 
 This custom app allows for users to export their content to an Excel or CSV file. The user can choose the content types of the items they want to export and the workflow step the content items are in.
 
+![Screenshot of the custom app](content-export-tool-demo.gif)
+
 ## Deploying
 
 Netlify has made this easy. If you click the deploy button below, it will guide you through the process of deploying it to Netlify and leave you with a copy of the repository in your GitHub account as well.
