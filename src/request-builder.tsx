@@ -41,6 +41,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
     const contentTypeError = document.getElementById('content-type-error') as HTMLElement;
     const languageError = document.getElementById('language-error') as HTMLElement;
     const workflowStepError = document.getElementById('workflow-step-error') as HTMLElement;
+    const fileTypeError = document.getElementById('file-type-error') as HTMLElement;
 
     workbook.SheetNames = [];
     workbook.Sheets.length = {};
@@ -48,7 +49,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
 
     if (type === 'api-key') {
       const keyInput = document.getElementById('api-key') as HTMLInputElement;
-      setAPIKey(keyInput.value);
+      setAPIKey(keyInput.value.trim());
     }
     else {
       const selectedTypes = document.querySelectorAll('input[type="checkbox"]:checked');
@@ -56,12 +57,13 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
       const selectedWorkflowStep = document.querySelector('input[name="content-workflow-step"]:checked') as HTMLInputElement;
       const selectedFileTypeInput = document.querySelector('input[name="file-type"]:checked') as HTMLInputElement;
       
-      const itemName = (document.getElementById('item-name') as HTMLInputElement).value;
-      const collection = (document.getElementById('collection') as HTMLInputElement).value;
+      const itemName = (document.getElementById('item-name') as HTMLInputElement).value.trim();
+      const collection = (document.getElementById('collection') as HTMLInputElement).value.trim();
       
       const selectedLastModifiedOperator = document.getElementById('last-modified-filtering-operator') as HTMLSelectElement;
       let lastModified = [];
 
+      // Setting lastModified value
       if (selectedLastModifiedOperator) {
         if (selectedLastModifiedOperator.value !== filteringOperators[filteringOperators.length - 1]) {
           const lastModifiedInput = document.getElementById('last-modified') as HTMLInputElement;
@@ -76,7 +78,8 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
         }
       }
 
-      if (selectedTypes.length === 0 || !selectedLanguage || !selectedWorkflowStep) {
+      // Checking for missing values and displaying or hiding errors
+      if (selectedTypes.length === 0 || !selectedLanguage || !selectedWorkflowStep || !selectedFileTypeInput) {
         if (selectedTypes.length === 0) {
           if (contentTypeError) contentTypeError.style.display = 'block';
         }
@@ -97,6 +100,13 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
         else {
           if (workflowStepError) workflowStepError.style.display = 'none';
         }
+
+        if (!selectedFileTypeInput) {
+          if (fileTypeError) fileTypeError.style.display = 'block';
+        }
+        else {
+          if (fileTypeError) fileTypeError.style.display = 'none';
+        }
       }
       else {  
         if (apiKeyError) apiKeyError.style.display = 'none';
@@ -104,6 +114,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
         if (contentTypeError) contentTypeError.style.display = 'none';
         if (languageError) languageError.style.display = 'none';
         if (workflowStepError) workflowStepError.style.display = 'none';
+        if (fileTypeError) fileTypeError.style.display = 'none';
 
         const types: Array<string>= [];
 
@@ -238,6 +249,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
     const contentTypeError = document.getElementById('content-type-error') as HTMLElement;
     const languageError = document.getElementById('language-error') as HTMLElement;
     const workflowStepError = document.getElementById('workflow-step-error') as HTMLElement;
+    const fileTypeError = document.getElementById('file-type-error') as HTMLElement;
     const loadingContainer = document.getElementById('loading-container') as HTMLElement;
             
     if (loadingContainer) loadingContainer.style.display = 'flex';
@@ -246,6 +258,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
     if (contentTypeError) contentTypeError.style.display = 'none';
     if (languageError) languageError.style.display = 'none';
     if (workflowStepError) workflowStepError.style.display = 'none';
+    if (fileTypeError) fileTypeError.style.display = 'none';
 
     if (response.isError === false) {
       if (response.config) {
@@ -254,7 +267,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
           if (contentTypeError) contentTypeError.style.display = 'none';
           const backBtn = document.getElementById('back-btn');
           if (backBtn) backBtn.style.display = 'none';
-          setAPIKey(config.deliveryKey);
+          setAPIKey(config.deliveryKey.trim());
         }
         else {
           if (loadingContainer) loadingContainer.style.display = 'none';
@@ -340,7 +353,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
                       <span className='tooltip-icon' title='These are the content types of the items that will be exported.'>ⓘ</span>
                     </legend>
                     <p id='content-type-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[165px] top-0'>
-                      Please select at least one content type to export.
+                      Please select at least one content type.
                     </p>
                   </div>
                 </summary>
@@ -375,7 +388,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
                       <span className='tooltip-icon' title='These are the languages your content items can be exported in.'>ⓘ</span>
                     </legend>
                     <p id='language-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[165px] top-0'>
-                      Please select at least one language to export.
+                      Please select a language.
                     </p>
                   </div>
                 </summary>
@@ -406,7 +419,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
                       </span>
                     </legend>
                     <p id='workflow-step-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[165px] top-0'>
-                      Please select at least one workflow step to export.
+                      Please select a workflow step.
                     </p>
                   </div>
                 </summary>
@@ -476,15 +489,18 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
               </details>
             </fieldset>
             <fieldset className='basis-full flex flex-wrap border-none'>
-              <div className='basis-full flex mb-3'>
+              <div className='basis-full flex mb-3 relative'>
                 <legend className='font-bold text-[16px]'>
                   File type
-                  <span className='tooltip-icon' title='If you choose Excel, then your selected content types will be organized into their own worksheets and exported within a single spreadsheet. If you choose CSV, then your selected content types will be contained within their own CSV files, and exported together as a ZIP file.'>ⓘ</span>
+                  <span className='tooltip-icon' title='If you choose Excel, then your selected content types will be organized into their own worksheets and exported within a single workbook. If you choose CSV, then your selected content types will be contained within their own CSV files, and exported together as a ZIP file.'>ⓘ</span>
                 </legend>
+                <p id='file-type-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[191.391px] top-0'>
+                  Please select a file type.
+                </p>
               </div>
               <div className='basis-full flex mb-3'>
                 <label htmlFor='excel-radio-btn' className='input-container flex place-items-center'>
-                  <input type='radio' id='excel-radio-btn' className='mr-[8px] accent-(--purple)' name='file-type' value={'excel'} required={true} />
+                  <input type='radio' id='excel-radio-btn' className='mr-[8px] accent-(--purple)' name='file-type' value={'excel'} />
                   Excel
                 </label>
               </div>
