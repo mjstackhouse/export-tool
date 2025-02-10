@@ -1,6 +1,10 @@
 # Content Export Tool
 
-This custom app allows for users to export their content to an Excel or CSV file. The user can choose the content types of the items they want to export and the workflow step the content items are in.
+This is a [custom app](https://kontent.ai/learn/docs/custom-apps) for [Kontent.ai](https://kontent.ai/) that allows for users to export their content to an Excel or CSV file. The user chooses the content types, language, and workflow step of the content items being exported. They can also use three optional filters: the item name, collection, and last modified date. When exported, the items are separated by type. 
+
+- If the user chooses the Excel file type, the content types are separated into worksheets, and then exported together in a single workbook. 
+
+- If the user chooses the CSV file type, each content type is separated into its own CSV file, and then exported together as a ZIP file.
 
 ![Screenshot of the custom app](content-export-tool-demo.gif)
 
@@ -20,5 +24,7 @@ But, if you'd like to add your Delivery Preview API key to the configuration, yo
   "deliveryKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwOGVjN2EyY2Y1OWQ0YjY2YTUyNDcyNmZjYzY0ZDM1OCIsImlhdCI6MTczODYyMzYwOCwibmJmIjoxNzM4NjIzNjA4LCJleHAiOjE3NzAxNTk1NDAsInZlciI6IjIuMC4wIiwic2NvcGVfaWQiOiI4YWQxODQ5Y2VlNTM0ZDFmODNiNzVlOTMzYWRiNzQ1NSIsInByb2plY3RfY29udGFpbmVyX2lkIjoiNzk0MjRmOWFkNGE2MDBjYzRhN2ZiYTFkYmU5OTMwMTQiLCJhdWQiOiJkZWxpdmVyLmtvbnRlbnQuYWkifQ.nNr6oS9MwrOxgYHyZAjxA6HPesjRnuUi26AnYw04vJQ"
 }
 ```
+
+The key needs to have 'Content preview' enabled, and if your environment has 'Secure access' enabled, then the key needs that as well.
 
 Adding the key to your configuration will technically expose the key to any roles allowed to use the custom app (if they go looking for it), but it will also speed up the process for the user, so this is ultimately up to whoever configures the custom app.
