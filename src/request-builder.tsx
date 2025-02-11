@@ -10,7 +10,7 @@ import secureAccessTest from './utils/secure-access-test';
 import previewTest from './utils/preview-test';
 
 interface RequestBuilderProps {
-  response: CustomAppContext,
+  contextResponse: CustomAppContext,
   workbook: XLSX.WorkBook
 }
 
@@ -18,7 +18,7 @@ type Config = {
   deliveryKey?: string;
 }
 
-export default function RequestBuilder({ response, workbook }: RequestBuilderProps) {
+export default function RequestBuilder({ contextResponse, workbook }: RequestBuilderProps) {
   let environmentId: string;
 
   const filteringOperators = ['equals', 'does not equal', 'is before', 'is before or the same as', 'is after', 'is after or the same as', 'is in the range of'];
@@ -27,10 +27,13 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
   const [languages, setLanguages] = useState<Array<ILanguage>>();
   const [apiKey, setAPIKey] = useState<string>('');
   const [apiKeyErrorText, setAPIKeyErrorText] = useState<string>('');
+  const [loadingText, setLoadingText] = useState<string>('Checking custom app configuration...');
+  const [exportButtonText, setExportButtonText] = useState<string>('Export content');
   const [validAPIKey, setValidAPIKey] = useState<boolean>(false);
+  const [validConfigAPIKey, setValidConfigAPIKey] = useState<boolean>(false);
   
-  if (response.isError !== true) {
-    environmentId = response.context.environmentId;
+  if (contextResponse.isError !== true) {
+    environmentId = contextResponse.context.environmentId;
   }
 
   async function handleSubmit(event: FormEvent, type: string) {
@@ -49,6 +52,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
 
     if (type === 'api-key') {
       const keyInput = document.getElementById('api-key') as HTMLInputElement;
+      setLoadingText('Validating your API key...');
       setAPIKey(keyInput.value.trim());
     }
     else {
@@ -80,41 +84,53 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
 
       // Checking for missing values and displaying or hiding errors
       if (selectedTypes.length === 0 || !selectedLanguage || !selectedWorkflowStep || !selectedFileTypeInput) {
-        if (selectedTypes.length === 0) {
-          if (contentTypeError) contentTypeError.style.display = 'block';
+        if (!selectedFileTypeInput) {
+          if (fileTypeError) fileTypeError.style.display = 'block';
+          fileTypeError.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
         }
         else {
-          if (contentTypeError) contentTypeError.style.display = 'none';
+          if (fileTypeError) fileTypeError.style.display = 'none';
         }
-        
-        if (!selectedLanguage) {
-          if (languageError) languageError.style.display = 'block';
-        }
-        else {
-          if (languageError) languageError.style.display = 'none';
-        }
-        
+
         if (!selectedWorkflowStep) {
           if (workflowStepError) workflowStepError.style.display = 'block';
+          workflowStepError.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
         }
         else {
           if (workflowStepError) workflowStepError.style.display = 'none';
         }
 
-        if (!selectedFileTypeInput) {
-          if (fileTypeError) fileTypeError.style.display = 'block';
+        if (!selectedLanguage) {
+          if (languageError) languageError.style.display = 'block';
+          languageError.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
         }
         else {
-          if (fileTypeError) fileTypeError.style.display = 'none';
+          if (languageError) languageError.style.display = 'none';
+        }
+
+        if (selectedTypes.length === 0) {
+          if (contentTypeError) contentTypeError.style.display = 'block';
+          contentTypeError.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
+        }
+        else {
+          if (contentTypeError) contentTypeError.style.display = 'none';
         }
       }
-      else {  
+      else {
         if (apiKeyError) apiKeyError.style.display = 'none';
         if (noItemsError) noItemsError.style.display = 'none';
         if (contentTypeError) contentTypeError.style.display = 'none';
         if (languageError) languageError.style.display = 'none';
         if (workflowStepError) workflowStepError.style.display = 'none';
         if (fileTypeError) fileTypeError.style.display = 'none';
+
+        setExportButtonText('Exporting content')
+
+        const exportBtn = document.getElementById('export-btn');
+        if (exportBtn) exportBtn.setAttribute('disabled', '');
+
+        const loadingExportSpinner = document.getElementById('loading-export') as HTMLElement;
+        if (loadingExportSpinner) loadingExportSpinner.style.display = 'inline-block';
 
         const types: Array<string>= [];
 
@@ -132,7 +148,6 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
             if (noItemsError) noItemsError.style.display = 'none';
 
             const itemsValues = data.items.map((item) => Object.entries(item.elements).map(obj => (obj[1].type !== 'modular_content' && obj[1].type !== 'asset' && obj[1].type !== 'taxonomy' && obj[1].type !== 'multiple_choice' ? obj[1].value : (obj[1].type === 'modular_content' ? obj[1].value.join(',') : (obj[1].type === 'asset' ? obj[1].value.map((asset: { url: string; }) => asset.url).join(',') : obj[1].value.map((val: { name: string; }) => val.name).join(','))))));
-
             const items = data.items.map((item) => Object.entries(item.elements).map(obj => ({ [obj[1].name]: obj[1].value })));
     
             let currentType = data.items[0].system.type;
@@ -195,6 +210,7 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
                 currentItems.push(itemsValues[i]);
               }
             }
+
             if (selectedFileType === 'excel') {
               XLSX.writeFile(workbook, `${environmentId}-export.xlsx`);
             }
@@ -220,6 +236,10 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
             const noItemsError = document.getElementById('no-items-error') as HTMLElement;
             if (noItemsError) noItemsError.style.display = 'block';
           }
+
+          setExportButtonText('Export content')
+          if (exportBtn) exportBtn.removeAttribute('disabled');
+          if (loadingExportSpinner) loadingExportSpinner.style.display = 'none';
         })
       }
     }
@@ -251,7 +271,9 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
     const workflowStepError = document.getElementById('workflow-step-error') as HTMLElement;
     const fileTypeError = document.getElementById('file-type-error') as HTMLElement;
     const loadingContainer = document.getElementById('loading-container') as HTMLElement;
-            
+    const loadingExportSpinner = document.getElementById('loading-export') as HTMLElement;
+        
+    if (loadingExportSpinner) loadingExportSpinner.style.display = 'none';       
     if (loadingContainer) loadingContainer.style.display = 'flex';
     if (apiKeyError) apiKeyError.style.display = 'none';
     if (noItemsError) noItemsError.style.display = 'none';
@@ -260,41 +282,70 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
     if (workflowStepError) workflowStepError.style.display = 'none';
     if (fileTypeError) fileTypeError.style.display = 'none';
 
-    if (response.isError === false) {
-      if (response.config) {
-        const config = response.config as Config;
-        if (config.deliveryKey) {
-          if (contentTypeError) contentTypeError.style.display = 'none';
-          const backBtn = document.getElementById('back-btn');
-          if (backBtn) backBtn.style.display = 'none';
+    if (contextResponse.isError === false) {
+      if (contextResponse.config !== 'unavailable' && contextResponse.config !== null) {
+        const config = contextResponse.config as Config;
+
+        if (config.deliveryKey && apiKey === '') {
           setAPIKey(config.deliveryKey.trim());
         }
-        else {
-          if (loadingContainer) loadingContainer.style.display = 'none';
-        }
       }
-      else {
-        if (loadingContainer) loadingContainer.style.display = 'none';
+      else if (contextResponse.config === null) {
+        setTimeout(() => {
+          if (loadingContainer) loadingContainer.style.display = 'none';
+        }, 1000);
+      }
+
+      if (validConfigAPIKey === true) {
+        if (contentTypeError) contentTypeError.style.display = 'none';
+        const backBtn = document.getElementById('back-btn');
+        if (backBtn) backBtn.style.display = 'none';
       }
 
       if (apiKey !== '') {
+        if (loadingContainer) {
+          if (loadingContainer.style.display === 'none') loadingContainer.style.display = 'flex';
+        }
+
         secureAccessTest(environmentId, apiKey).then(async (response) => {
           if (typeof response === 'string') {
+            if (loadingContainer) loadingContainer.style.display = 'none';
             if (apiKeyError) apiKeyError.style.display = 'block';
-            setAPIKeyErrorText(response);
+            if (contextResponse.config) {
+              if ((contextResponse.config as Config).deliveryKey) {
+                setValidConfigAPIKey(false);
+                setAPIKeyErrorText("Missing or invalid key. Please adjust the custom app's configuration, or input a valid key above.");
+              } 
+            }
+            else setAPIKeyErrorText("Invalid key. Please make sure your key has 'Secure access' enabled.");
           }
           else {
             previewTest(environmentId, apiKey).then(async (response) => {
               if (typeof response === 'string') {
+                if (loadingContainer) loadingContainer.style.display = 'none';
                 if (apiKeyError) apiKeyError.style.display = 'block';
-                setAPIKeyErrorText(response);
+                if (contextResponse.config) {
+                  if ((contextResponse.config as Config).deliveryKey) {
+                    setValidConfigAPIKey(false);
+                    setAPIKeyErrorText("Missing or invalid key. Please adjust the custom app's configuration, or input a valid key above.");
+                  } 
+                }
+                else setAPIKeyErrorText("Invalid key. Please make sure your key has 'Content preview' enabled.");
               }
               else {
+                if (contextResponse.config) {
+                  if ((contextResponse.config as Config).deliveryKey) setValidConfigAPIKey(true);
+                }
+
+                setLoadingText('Fetching content types...');
+
                 fetchTypes(environmentId, apiKey).then(async (response) => {
                   if (response === 'error') {
+                    if (loadingContainer) loadingContainer.style.display = 'none';
                     if (apiKeyError) apiKeyError.style.display = 'block';
                   }
                   else if (response.items.length === 0) {
+                    if (loadingContainer) loadingContainer.style.display = 'none';
                     if (apiKeyError) apiKeyError.style.display = 'block';
                     setAPIKeyErrorText('Please make sure your environment has content types to export.');
                   }
@@ -302,17 +353,19 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
                     setValidAPIKey(true);
 
                     if (contentTypeError) contentTypeError.style.display = 'none';
-                    if (loadingContainer) loadingContainer.style.display = 'none';
+
                     setContentTypes(response.items);
+                    setLoadingText('Fetching languages...');
 
                     fetchLanguages(environmentId, apiKey).then(async (response) => {
                       if (response === 'error') {
+                        if (loadingContainer) loadingContainer.style.display = 'none';
                         if (apiKeyError) apiKeyError.style.display = 'block';
                       }
                       else {
+                        setLanguages(response.items);
                         if (contentTypeError) contentTypeError.style.display = 'none';
                         if (loadingContainer) loadingContainer.style.display = 'none';
-                        setLanguages(response.items);
                       }
                     })
                   }
@@ -334,13 +387,22 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
         }
       });
     }
-  }, [response, apiKey, validAPIKey])
+  }, [contextResponse, apiKey, validAPIKey])
   
   return (
     <div className='flex flex-wrap basis-full'>
+      <div id='loading-container' className='basis-full fixed bg-white z-10 top-0 bottom-0 left-0 right-0 flex place-items-center'>
+        <div className='basis-full flex flex-wrap'>
+          <div className='basis-full flex flex-wrap place-content-center'>
+            <div id='loading-general-text' className='basis-full mb-3'>{loadingText}</div>
+            <span id='loading-general' className='loading-span text-6xl'></span>
+          </div>
+        </div>
+      </div>
       {
         validAPIKey === true ?
           <form className='basis-full relative flex flex-wrap place-content-start divide-y divide-solid divide-gray-300' onSubmit={(e) => handleSubmit(e, 'export')}>
+            
             <p id='no-items-error' className='hidden fixed bg-(--red) text-white px-2 py-[0.25rem] rounded-lg top-[72px] inset-x-[25%] z-10'>
               No items are available with the selected filters. Please change your selected filters.
             </p>
@@ -513,18 +575,14 @@ export default function RequestBuilder({ response, workbook }: RequestBuilderPro
             </fieldset>
             <div className='justify-self-end h-[60px] basis-full flex place-items-end justify-between'>
               <button id='back-btn' type='button' className='btn back-btn' onClick={() => handleBackBtn()}>Change API key</button>
-              <button type='submit' className='btn continue-btn'>Export content</button>
+              <button id='export-btn' type='submit' className='btn continue-btn flex place-items-center'>
+                <span id='loading-export' className='hidden loading-span'></span>
+                {exportButtonText}
+              </button>
             </div>
           </form>
           :
           <form onSubmit={(e) => handleSubmit(e, 'api-key')} className='basis-full flex flex-wrap place-content-start'>
-            <div id='loading-container' className='basis-full fixed bg-white z-10 top-0 bottom-0 left-0 right-0 flex place-items-center'>
-              <div className='basis-full flex flex-wrap'>
-                <div className='basis-full flex place-content-center'>
-                  <span id='loading-span' className='text-6xl'></span>
-                </div>
-              </div>
-            </div>
             <div className='relative basis-full flex flex-wrap place-items-start mb-12'>
               <label id='api-key-label' htmlFor='api-key' className='basis-full text-left mb-3 font-bold focus:border-color-(--orange)'>
                 Delivery Preview API key

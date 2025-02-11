@@ -186,13 +186,33 @@ label {
 }
 
 /* Animation code from: https://www.w3schools.com/howto/howto_css_loader.asp */
-#loading-span {
+.loading-span {
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+#loading-general {
   border: 6px solid #f3f3f3;
   border-top: 6px solid var(--orange);
-  border-radius: 50%;
   width: 38px;
   height: 38px;
-  animation: spin 1s linear infinite;
+}
+
+#loading-general-text {
+  font-size: 14px;
+}
+
+#loading-export {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid var(--orange);
+  display: inline;
+  width: 18px;
+  height: 18px;
+  margin-right: 0.75rem;
+}
+
+#export-btn:disabled {
+  cursor: not-allowed;
 }
 
 @keyframes spin {

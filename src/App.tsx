@@ -17,7 +17,7 @@ export default function App() {
             codename: '',
         }]
     },
-    config: ''
+    config: 'unavailable'
   });
 
   async function getContext() {
@@ -40,7 +40,7 @@ export default function App() {
       <p id='app-title' className='absolute top-0 right-0 left-0 py-4 pl-[3rem] text-[16px] text-left text-white'>Content export tool</p>
       {
         response.isError === false ?
-          <RequestBuilder response={response} workbook={workbook} />
+          <RequestBuilder contextResponse={response} workbook={workbook} />
           :
           <div>
             <strong>{response.code}: </strong>

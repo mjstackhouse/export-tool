@@ -21,15 +21,17 @@ export default async function fetchItems(environmentId: string, apiKey: string, 
   let deliveryClient = createDeliveryClientContainer(environmentId, apiKey);
 
   let query = deliveryClient.items()
-      .orderByAscending('system.type')
-      .types(types)
-      .languageParameter(language)
-      .equalsFilter('system.language', language)
+    .orderByAscending('system.type')
+    .types(types)
+    .languageParameter(language)
+    .equalsFilter('system.language', language)
+    .limitParameter(2000)
+    .depthParameter(0)
   
   if (lastModified) {
     if (!lastModified.value.includes('')) {
       const filterName = lastModifiedFilterMap[lastModified.filter as keyof typeof lastModifiedFilterMap];
-    
+
       type FilterMethod = (
         element: string,
         value: string | Array<string>
@@ -53,7 +55,36 @@ export default async function fetchItems(environmentId: string, apiKey: string, 
   } 
   else if (workflowStep === 'draft') query = query.equalsFilter('system.workflow_step', 'draft');
 
-  const response = await query.toPromise();
+  let response = await query.toPromise();
 
-  return response.data;
+  type APIResponseType = typeof response;
+
+  async function fetchWithPagination(query: MultipleItemsQuery, res: APIResponseType, nextPage: string) {
+    let previousResponse: APIResponseType = {...res};
+    const newResponse = await query
+      .withCustomUrl(nextPage)
+      .toPromise();
+  
+    for (let i = 0; i < newResponse.data.items.length; i++) {
+      previousResponse.data.items.push(newResponse.data.items[i]);
+    }
+  
+    if (newResponse.data.pagination.nextPage) {
+      return await fetchWithPagination(query, previousResponse, newResponse.data.pagination.nextPage);
+    }
+    else {
+      return previousResponse;
+    }
+  }
+
+  let finalResponse;
+
+  if (response.data.pagination.nextPage !== null) {
+    finalResponse = await fetchWithPagination(query, response, response.data.pagination.nextPage);
+  }
+  else {
+    finalResponse = {...response};
+  }
+
+  return finalResponse.data;
 }
