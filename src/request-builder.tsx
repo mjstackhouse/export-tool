@@ -272,8 +272,12 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     const fileTypeError = document.getElementById('file-type-error') as HTMLElement;
     const loadingContainer = document.getElementById('loading-container') as HTMLElement;
     const loadingExportSpinner = document.getElementById('loading-export') as HTMLElement;
+
+    if (contentTypes !== undefined && languages !== undefined) {
+      if (loadingContainer) loadingContainer.style.display = 'none';
+    }
         
-    if (loadingExportSpinner) loadingExportSpinner.style.display = 'none';       
+    if (loadingExportSpinner) loadingExportSpinner.style.display = 'none';    
     if (loadingContainer) loadingContainer.style.display = 'flex';
     if (apiKeyError) apiKeyError.style.display = 'none';
     if (noItemsError) noItemsError.style.display = 'none';
@@ -291,9 +295,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
         }
       }
       else if (contextResponse.config === null) {
-        setTimeout(() => {
-          if (loadingContainer) loadingContainer.style.display = 'none';
-        }, 1000);
+        if (loadingContainer) loadingContainer.style.display = 'none';
       }
 
       if (validConfigAPIKey === true) {
