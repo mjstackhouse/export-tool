@@ -57,7 +57,7 @@ export default function App() {
   
   return (
     <div className='flex flex-wrap my-0 mx-auto'>
-      <p id='app-title' className='absolute top-0 right-0 left-0 py-4 pl-[3rem] text-[16px] text-left text-white'>Content export tool</p>
+      <p id='app-title' className='absolute top-0 right-0 left-0 py-4 pl-[3rem] text-[16px] text-left text-white'>Export tool</p>
       {
         response.isError === false ?
           <RequestBuilder contextResponse={response} workbook={workbook} />

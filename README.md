@@ -1,8 +1,8 @@
-# Content Export Tool
+# Export Tool
 
-This is a [custom app](https://kontent.ai/learn/docs/custom-apps) for [Kontent.ai](https://kontent.ai/) that allows for users to export their content to an Excel or CSV file. The user chooses the content types, language, and workflow step of the content items being exported. They can also use three optional filters: the item name, collection, and last modified date. When exported, the items are separated by type. 
+This is a [custom app](https://kontent.ai/learn/docs/custom-apps) for [Kontent.ai](https://kontent.ai/) that allows for users to export their content to an Excel or CSV file. This tool can also be used outside of Kontent.ai [here](https://export-tool.netlify.app/). The user chooses the content types, language, and workflow step of the content items being exported. They can also use three optional filters: the item name, collection, and last modified date. When exported, the items are separated by type.
 
-- If the user chooses the Excel file type, the content types are separated into worksheets, and then exported together in a single workbook. 
+- If the user chooses the Excel file type, the content types are separated into worksheets, and then exported together in a single workbook.
 
 - If the user chooses the CSV file type, each content type is separated into its own CSV file, and then exported together as a ZIP file.
 
@@ -10,9 +10,12 @@ This is a [custom app](https://kontent.ai/learn/docs/custom-apps) for [Kontent.a
 
 ## Deploying
 
-Netlify has made this easy. If you click the deploy button below, it will guide you through the process of deploying it to Netlify and leave you with a copy of the repository in your GitHub account as well.
+If you would like to deploy and host your own version of this app, Netlify has made this easy. If you click the deploy button below, it will guide you through the process of deploying it to Netlify and leave you with a copy of the repository in your GitHub account as well.
 
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/mjstackhouse/content-export-tool)
+
+But, if you would like to receive updates automatically when they're released, then you can use the following link for your custom app's URL:
+[https://export-tool.netlify.app/](https://export-tool.netlify.app/)
 
 ## Configuring the Custom App
 
