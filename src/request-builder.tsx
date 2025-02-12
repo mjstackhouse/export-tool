@@ -84,9 +84,11 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
 
       // Checking for missing values and displaying or hiding errors
       if (selectedTypes.length === 0 || !selectedLanguage || !selectedWorkflowStep || !selectedFileTypeInput) {
+        const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
         if (!selectedFileTypeInput) {
           if (fileTypeError) fileTypeError.style.display = 'block';
-          fileTypeError.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
+          fileTypeError.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
         }
         else {
           if (fileTypeError) fileTypeError.style.display = 'none';
@@ -94,7 +96,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
 
         if (!selectedWorkflowStep) {
           if (workflowStepError) workflowStepError.style.display = 'block';
-          workflowStepError.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
+          workflowStepError.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
         }
         else {
           if (workflowStepError) workflowStepError.style.display = 'none';
@@ -102,7 +104,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
 
         if (!selectedLanguage) {
           if (languageError) languageError.style.display = 'block';
-          languageError.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
+          languageError.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
         }
         else {
           if (languageError) languageError.style.display = 'none';
@@ -110,7 +112,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
 
         if (selectedTypes.length === 0) {
           if (contentTypeError) contentTypeError.style.display = 'block';
-          contentTypeError.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
+          contentTypeError.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
         }
         else {
           if (contentTypeError) contentTypeError.style.display = 'none';
