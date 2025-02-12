@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import './App.css';
-import { getCustomAppContext, CustomAppContext } from '@kontent-ai/custom-app-sdk';
 import RequestBuilder from './request-builder';
 import * as XLSX from 'xlsx';
 
+let customAppSDK: any = null;
+
 export default function App() {
   const workbook = XLSX.utils.book_new();
-  const [response, setResponse] = useState<CustomAppContext>({
+  const [response, setResponse] = useState<any>({
     isError: false,
     context: {
         environmentId: '',
@@ -21,18 +22,37 @@ export default function App() {
   });
 
   async function getContext() {
-    const currentResponse = await getCustomAppContext();
+    let currentResponse;
 
-    if (currentResponse.isError) {
-      console.error({ errorCode: currentResponse.code, description: currentResponse.description});
-    } 
-    else {
-      setResponse({...currentResponse});
+    if (customAppSDK !== null) {
+      currentResponse = await customAppSDK.getCustomAppContext();
+
+      if (await currentResponse.isError) {
+        console.error({ errorCode: currentResponse.code, description: currentResponse.description});
+      } 
+      else {
+        setResponse({...currentResponse});
+      }
     }
   };
 
   useEffect(() => {
-    getContext();
+    async function loadSDK() {
+      if (window.self !== window.top) {
+        try {
+          customAppSDK = await import('@kontent-ai/custom-app-sdk');
+          if (customAppSDK !== null) getContext();
+        }
+        catch (error) {
+          console.error(error);
+        }
+      }
+      else {
+        console.log('Running outside of Kontent.ai, SDK not loaded');
+      }
+    }
+
+    loadSDK();
   }, []);
   
   return (

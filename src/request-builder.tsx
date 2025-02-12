@@ -10,7 +10,7 @@ import secureAccessTest from './utils/secure-access-test';
 import previewTest from './utils/preview-test';
 
 interface RequestBuilderProps {
-  contextResponse: CustomAppContext,
+  contextResponse?: CustomAppContext,
   workbook: XLSX.WorkBook
 }
 
@@ -19,22 +19,19 @@ type Config = {
 }
 
 export default function RequestBuilder({ contextResponse, workbook }: RequestBuilderProps) {
-  let environmentId: string;
-
   const filteringOperators = ['equals', 'does not equal', 'is before', 'is before or the same as', 'is after', 'is after or the same as', 'is in the range of'];
 
-  const [contentTypes, setContentTypes] = useState<Array<IContentType>>();
-  const [languages, setLanguages] = useState<Array<ILanguage>>();
+  const [insideKontentAi, setInsideKontentAi] = useState<boolean>(false);
+  const [environmentId, setEnvironmentId] = useState<string>('');
   const [apiKey, setAPIKey] = useState<string>('');
   const [apiKeyErrorText, setAPIKeyErrorText] = useState<string>('');
+  const [contentTypes, setContentTypes] = useState<Array<IContentType>>();
+  const [languages, setLanguages] = useState<Array<ILanguage>>();
   const [loadingText, setLoadingText] = useState<string>('Checking custom app configuration...');
-  const [exportButtonText, setExportButtonText] = useState<string>('Export content');
+  const [exportBtnText, setExportBtnText] = useState<string>('Export content');
+  const [backBtnText, setBackBtnText] = useState<string>('Change API key');
   const [validAPIKey, setValidAPIKey] = useState<boolean>(false);
   const [validConfigAPIKey, setValidConfigAPIKey] = useState<boolean>(false);
-  
-  if (contextResponse.isError !== true) {
-    environmentId = contextResponse.context.environmentId;
-  }
 
   async function handleSubmit(event: FormEvent, type: string) {
     event.preventDefault();
@@ -51,9 +48,14 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     if (workbook.Props) workbook.Props.SheetNames = [];
 
     if (type === 'api-key') {
+      const environmentIdInput = document.getElementById('environment-id') as HTMLInputElement;
       const keyInput = document.getElementById('api-key') as HTMLInputElement;
-      setLoadingText('Validating your API key...');
+
+      if (environmentIdInput !== null) {
+        setEnvironmentId(environmentIdInput.value);
+      }
       setAPIKey(keyInput.value.trim());
+      setLoadingText('Validating your API key...');
     }
     else {
       const selectedTypes = document.querySelectorAll('input[type="checkbox"]:checked');
@@ -126,7 +128,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
         if (workflowStepError) workflowStepError.style.display = 'none';
         if (fileTypeError) fileTypeError.style.display = 'none';
 
-        setExportButtonText('Exporting content')
+        setExportBtnText('Exporting content')
 
         const exportBtn = document.getElementById('export-btn');
         if (exportBtn) exportBtn.setAttribute('disabled', '');
@@ -239,7 +241,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
             if (noItemsError) noItemsError.style.display = 'block';
           }
 
-          setExportButtonText('Export content')
+          setExportBtnText('Export content')
           if (exportBtn) exportBtn.removeAttribute('disabled');
           if (loadingExportSpinner) loadingExportSpinner.style.display = 'none';
         })
@@ -275,10 +277,6 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     const loadingContainer = document.getElementById('loading-container') as HTMLElement;
     const loadingExportSpinner = document.getElementById('loading-export') as HTMLElement;
 
-    if (contentTypes !== undefined && languages !== undefined) {
-      if (loadingContainer) loadingContainer.style.display = 'none';
-    }
-        
     if (loadingExportSpinner) loadingExportSpinner.style.display = 'none';    
     if (loadingContainer) loadingContainer.style.display = 'flex';
     if (apiKeyError) apiKeyError.style.display = 'none';
@@ -288,96 +286,174 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     if (workflowStepError) workflowStepError.style.display = 'none';
     if (fileTypeError) fileTypeError.style.display = 'none';
 
-    if (contextResponse.isError === false) {
-      if (contextResponse.config !== 'unavailable' && contextResponse.config !== null) {
-        const config = contextResponse.config as Config;
+    if (contentTypes !== undefined && languages !== undefined) {
+      if (loadingContainer) loadingContainer.style.display = 'none';
+    }
 
-        if (config.deliveryKey && apiKey === '') {
-          setAPIKey(config.deliveryKey.trim());
-        }
+    // Inside of Kontent.ai
+    if (contextResponse) {
+      if (contextResponse.isError !== true && contextResponse.context.environmentId !== '') {
+        setInsideKontentAi(true);
+        setEnvironmentId(contextResponse.context.environmentId);
+        setBackBtnText('Change API key');
       }
-      else if (contextResponse.config === null) {
+      else {
         if (loadingContainer) loadingContainer.style.display = 'none';
+        setInsideKontentAi(false);
+        setBackBtnText('Change settings');
       }
 
-      if (validConfigAPIKey === true) {
-        if (contentTypeError) contentTypeError.style.display = 'none';
-        const backBtn = document.getElementById('back-btn');
-        if (backBtn) backBtn.style.display = 'none';
-      }
-
-      if (apiKey !== '') {
-        if (loadingContainer) {
-          if (loadingContainer.style.display === 'none') loadingContainer.style.display = 'flex';
+      if (contextResponse.isError === false && contextResponse.context.environmentId !== '') {
+        if (contextResponse.config !== 'unavailable' && contextResponse.config !== null) {
+          const config = contextResponse.config as Config;
+  
+          if (config.deliveryKey && apiKey === '') {
+            setAPIKey(config.deliveryKey.trim());
+          }
         }
-
-        secureAccessTest(environmentId, apiKey).then(async (response) => {
-          if (typeof response === 'string') {
-            if (loadingContainer) loadingContainer.style.display = 'none';
-            if (apiKeyError) apiKeyError.style.display = 'block';
-            if (contextResponse.config) {
-              if ((contextResponse.config as Config).deliveryKey) {
-                setValidConfigAPIKey(false);
-                setAPIKeyErrorText("Missing or invalid key. Please adjust the custom app's configuration, or input a valid key above.");
-              } 
+        else if (contextResponse.config === null) {
+          if (loadingContainer) loadingContainer.style.display = 'none';
+        }
+  
+        if (validConfigAPIKey === true) {
+          if (contentTypeError) contentTypeError.style.display = 'none';
+          const backBtn = document.getElementById('back-btn');
+          if (backBtn) backBtn.style.display = 'none';
+        }
+  
+        if (apiKey !== '') {
+          if (loadingContainer) {
+            if (loadingContainer.style.display === 'none') loadingContainer.style.display = 'flex';
+          }
+  
+          secureAccessTest(environmentId, apiKey).then(async (response) => {
+            if (typeof response === 'string') {
+              if (loadingContainer) loadingContainer.style.display = 'none';
+              if (apiKeyError) apiKeyError.style.display = 'block';
+              if (contextResponse.config) {
+                if ((contextResponse.config as Config).deliveryKey) {
+                  setValidConfigAPIKey(false);
+                  setAPIKeyErrorText("Missing or invalid key. Please adjust the custom app's configuration, or input a valid key above.");
+                } 
+              }
+              else setAPIKeyErrorText("Invalid key. Please make sure your key has 'Secure access' enabled.");
             }
-            else setAPIKeyErrorText("Invalid key. Please make sure your key has 'Secure access' enabled.");
-          }
-          else {
-            previewTest(environmentId, apiKey).then(async (response) => {
-              if (typeof response === 'string') {
-                if (loadingContainer) loadingContainer.style.display = 'none';
-                if (apiKeyError) apiKeyError.style.display = 'block';
-                if (contextResponse.config) {
-                  if ((contextResponse.config as Config).deliveryKey) {
-                    setValidConfigAPIKey(false);
-                    setAPIKeyErrorText("Missing or invalid key. Please adjust the custom app's configuration, or input a valid key above.");
-                  } 
+            else {
+              previewTest(environmentId, apiKey).then(async (response) => {
+                if (typeof response === 'string') {
+                  if (loadingContainer) loadingContainer.style.display = 'none';
+                  if (apiKeyError) apiKeyError.style.display = 'block';
+                  if (contextResponse.config) {
+                    if ((contextResponse.config as Config).deliveryKey) {
+                      setValidConfigAPIKey(false);
+                      setAPIKeyErrorText("Missing or invalid key. Please adjust the custom app's configuration, or input a valid key above.");
+                    }
+                  }
+                  else setAPIKeyErrorText("Invalid key. Please make sure your key has 'Content preview' enabled.");
                 }
-                else setAPIKeyErrorText("Invalid key. Please make sure your key has 'Content preview' enabled.");
-              }
-              else {
-                if (contextResponse.config) {
-                  if ((contextResponse.config as Config).deliveryKey) setValidConfigAPIKey(true);
+                else {
+                  if (contextResponse.config) {
+                    if ((contextResponse.config as Config).deliveryKey) setValidConfigAPIKey(true);
+                  }
+  
+                  setLoadingText('Fetching content types...');
+  
+                  fetchTypes(environmentId, apiKey).then(async (response) => {
+                    if (response === 'error') {
+                      if (loadingContainer) loadingContainer.style.display = 'none';
+                      if (apiKeyError) apiKeyError.style.display = 'block';
+                    }
+                    else if (response.items.length === 0) {
+                      if (loadingContainer) loadingContainer.style.display = 'none';
+                      if (apiKeyError) apiKeyError.style.display = 'block';
+                      setAPIKeyErrorText('Please make sure your environment has content types to export.');
+                    }
+                    else {
+                      setValidAPIKey(true);
+  
+                      if (contentTypeError) contentTypeError.style.display = 'none';
+  
+                      setContentTypes(response.items);
+                      setLoadingText('Fetching languages...');
+  
+                      fetchLanguages(environmentId, apiKey).then(async (response) => {
+                        if (response === 'error') {
+                          if (loadingContainer) loadingContainer.style.display = 'none';
+                          if (apiKeyError) apiKeyError.style.display = 'block';
+                        }
+                        else {
+                          setLanguages(response.items);
+                          if (contentTypeError) contentTypeError.style.display = 'none';
+                          if (loadingContainer) loadingContainer.style.display = 'none';
+                        }
+                      })
+                    }
+                  })
                 }
-
-                setLoadingText('Fetching content types...');
-
-                fetchTypes(environmentId, apiKey).then(async (response) => {
-                  if (response === 'error') {
-                    if (loadingContainer) loadingContainer.style.display = 'none';
-                    if (apiKeyError) apiKeyError.style.display = 'block';
-                  }
-                  else if (response.items.length === 0) {
-                    if (loadingContainer) loadingContainer.style.display = 'none';
-                    if (apiKeyError) apiKeyError.style.display = 'block';
-                    setAPIKeyErrorText('Please make sure your environment has content types to export.');
-                  }
-                  else {
-                    setValidAPIKey(true);
-
-                    if (contentTypeError) contentTypeError.style.display = 'none';
-
-                    setContentTypes(response.items);
-                    setLoadingText('Fetching languages...');
-
-                    fetchLanguages(environmentId, apiKey).then(async (response) => {
-                      if (response === 'error') {
-                        if (loadingContainer) loadingContainer.style.display = 'none';
-                        if (apiKeyError) apiKeyError.style.display = 'block';
-                      }
-                      else {
-                        setLanguages(response.items);
-                        if (contentTypeError) contentTypeError.style.display = 'none';
-                        if (loadingContainer) loadingContainer.style.display = 'none';
-                      }
-                    })
-                  }
-                })
-              }
-            })
+              })
+            }
+          })
+        }
+      }
+      // Outside of Kontent.ai
+      else {
+        if (apiKey !== '' && environmentId !== '') {
+          if (loadingContainer) {
+            if (loadingContainer.style.display === 'none') loadingContainer.style.display = 'flex';
           }
-        })
+
+          secureAccessTest(environmentId, apiKey).then(async (response) => {
+            if (typeof response === 'string') {
+              setAPIKeyErrorText("Invalid key. Please make sure your key has 'Secure access' enabled.");
+              if (loadingContainer) loadingContainer.style.display = 'none';
+              if (apiKeyError) apiKeyError.style.display = 'block';
+            }
+            else {
+              previewTest(environmentId, apiKey).then(async (response) => {
+                if (typeof response === 'string') {
+                  setAPIKeyErrorText("Invalid key. Please make sure your key has 'Content preview' enabled.");
+                  if (loadingContainer) loadingContainer.style.display = 'none';
+                  if (apiKeyError) apiKeyError.style.display = 'block';
+                }
+                else {
+                  setLoadingText('Fetching content types...');
+
+                  fetchTypes(environmentId, apiKey).then(async (response) => {
+                    if (response === 'error') {
+                      if (loadingContainer) loadingContainer.style.display = 'none';
+                      if (apiKeyError) apiKeyError.style.display = 'block';
+                    }
+                    else if (response.items.length === 0) {
+                      if (loadingContainer) loadingContainer.style.display = 'none';
+                      if (apiKeyError) apiKeyError.style.display = 'block';
+                      setAPIKeyErrorText('Please make sure your environment has content types to export.');
+                    }
+                    else {
+                      setValidAPIKey(true);
+
+                      if (contentTypeError) contentTypeError.style.display = 'none';
+
+                      setContentTypes(response.items);
+                      setLoadingText('Fetching languages...');
+
+                      fetchLanguages(environmentId, apiKey).then(async (response) => {
+                        if (response === 'error') {
+                          if (loadingContainer) loadingContainer.style.display = 'none';
+                          if (apiKeyError) apiKeyError.style.display = 'block';
+                        }
+                        else {
+                          setLanguages(response.items);
+                          if (contentTypeError) contentTypeError.style.display = 'none';
+                          if (loadingContainer) loadingContainer.style.display = 'none';
+                        }
+                      })
+                    }
+                  })
+                }
+              })
+            }
+          })
+        }
       }
     }
 
@@ -578,22 +654,38 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
               </div>
             </fieldset>
             <div className='justify-self-end h-[60px] basis-full flex place-items-end justify-between'>
-              <button id='back-btn' type='button' className='btn back-btn' onClick={() => handleBackBtn()}>Change API key</button>
+              <button id='back-btn' type='button' className='btn back-btn' onClick={() => handleBackBtn()}>{backBtnText}</button>
               <button id='export-btn' type='submit' className='btn continue-btn flex place-items-center'>
                 <span id='loading-export' className='hidden loading-span'></span>
-                {exportButtonText}
+                {exportBtnText}
               </button>
             </div>
           </form>
           :
           <form onSubmit={(e) => handleSubmit(e, 'api-key')} className='basis-full flex flex-wrap place-content-start'>
             <div className='relative basis-full flex flex-wrap place-items-start mb-12'>
-              <label id='api-key-label' htmlFor='api-key' className='basis-full text-left mb-3 font-bold focus:border-color-(--orange)'>
-                Delivery Preview API key
-                <span className='tooltip-icon' title='Your key must have Content Preview enabled. If your environment has Secure Access enabled, then your key must have Secure Access enabled as well.'>ⓘ</span>
-              </label>
-              <input type='text' id='api-key' name='api-key' required={true}/>
-              <p id='api-key-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg top-[5.5rem]'>{apiKeyErrorText}</p>
+              {
+                insideKontentAi === false ?
+                <div className='basis-full relative flex flex-wrap mb-6'>
+                  <label id='environment-id-label' htmlFor='environment-id' className='basis-full text-left mb-3 font-bold focus:border-color-(--orange)'>
+                    Environment ID
+                  <span className='tooltip-icon' title="The environment ID of the environment you would like to export content from. This can be found under 'Environment settings', or as the value in the URL as shown: app.kontent.ai/<environment-id>.">ⓘ</span>
+                  </label>
+                  <input type='text' id='environment-id' name='environment-id' required={true}/>
+                </div>
+                :
+                null
+              }
+              <div className='basis-full relative flex flex-wrap'>
+                <label id='api-key-label' htmlFor='api-key' className='basis-full text-left mb-3 font-bold focus:border-color-(--orange)'>
+                  Delivery Preview API key
+                  <span className='tooltip-icon' title='Your key must have Content Preview enabled. If your environment has Secure Access enabled, then your key must have Secure Access enabled as well.'>ⓘ</span>
+                </label>
+                <input type='text' id='api-key' name='api-key' required={true}/>
+                <p id='api-key-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg top-[5.5rem]'>
+                  {apiKeyErrorText}
+                </p>
+              </div>
             </div>
             <div className='justify-self-end h-[60px] basis-full text-right'>
               <button type='submit' className='btn continue-btn place-self-end'>Continue</button>

@@ -69,7 +69,7 @@ export default async function fetchItems(environmentId: string, apiKey: string, 
       previousResponse.data.items.push(newResponse.data.items[i]);
     }
   
-    if (newResponse.data.pagination.nextPage) {
+    if (newResponse.data.pagination.nextPage !== '') {
       return await fetchWithPagination(query, previousResponse, newResponse.data.pagination.nextPage);
     }
     else {
@@ -79,7 +79,7 @@ export default async function fetchItems(environmentId: string, apiKey: string, 
 
   let finalResponse;
 
-  if (response.data.pagination.nextPage !== null) {
+  if (response.data.pagination.nextPage !== '') {
     finalResponse = await fetchWithPagination(query, response, response.data.pagination.nextPage);
   }
   else {

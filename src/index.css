@@ -159,7 +159,7 @@ label {
   font-size: 14px;
 }
 
-#api-key-label {
+#api-key-label, #environment-id-label {
   font-size: 16px;
 }
 
