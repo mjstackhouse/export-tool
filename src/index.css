@@ -135,7 +135,6 @@ summary::marker {
   color: var(--orange);
 }
 
-
 details > .type-filters-summary {
   list-style: none;
 }
@@ -151,6 +150,10 @@ summary > div {
 
 summary {
   padding: 12px 12px 12px 0px;
+}
+
+summary:hover {
+  background-color: var(--lighter-orange);
 }
 
 .input-container, label.type-filters:hover {
