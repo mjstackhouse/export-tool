@@ -93,12 +93,15 @@ input:not([type="text"]):hover {
   cursor: pointer;
 }
 
-input[type="text"], input[type="date"], select {
+input[type="text"], input[type="date"], input[type="number"], select {
   flex-basis: 100%;
-  border: 1px solid black;
+  border: 1px solid var(--color-gray-500);
   border-radius: 9999px;
   padding: 0.25rem 0.5rem;
-  margin-bottom: 0.375rem;
+}
+
+.type-filter-operator {
+  margin-bottom: 9px;
 }
 
 select {
@@ -132,6 +135,15 @@ summary::marker {
   color: var(--orange);
 }
 
+
+details > .type-filters-summary {
+  list-style: none;
+}
+
+details > .type-filters-summary::-webkit-details-marker {
+  display: none;
+}
+
 summary > div {
   display: inline-block;
   width: calc(100% - 35px);
@@ -141,22 +153,70 @@ summary {
   padding: 12px 12px 12px 0px;
 }
 
-summary:hover {
-  background-color: var(--lighter-orange);
-}
-
-.required-asterisk {
-  font-size: 14px;
-  color: var(--orange);
-  margin-left: 2px;
-}
-
-.input-container {
+.input-container, label.type-filters:hover {
   cursor: pointer;
 }
 
-label {
+label:not(.type-filters) {
   font-size: 14px;
+}
+
+.type-element-values {
+  display: flex;
+  place-items: center;
+  vertical-align: middle;
+  justify-content: space-between;
+  font-size: 14px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-gray-500);
+  background-color: white;
+  padding: 0.25rem 0.5rem;
+  padding: 4px 8px;
+  color: var(--lighter-black);
+  font-stretch: 100%;
+  font-kerning: auto;
+  height: 32px;
+  line-height: 18px;
+  text-decoration: none;
+  margin-right: 12px;
+}
+
+.delete-btn {
+  font-size: 20px;
+  color: var(--color-gray-400);
+  margin-left: 1rem;
+  line-height: 12px;
+  height: 12px;
+  vertical-align: text-top;
+}
+
+.delete-btn:hover {
+  color: var(--red);
+}
+
+/* Always show arrows styling from: https://davidwalsh.name/always-show-arrows-for-number-input */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+.types-filters-details {
+  place-self: end;
+}
+
+.types-filters-details[open] {
+  border-radius: 0.75rem;
+  border-left: 2px solid var(--purple);
+  border-right: 2px solid var(--purple);
+  border-bottom: 2px solid var(--purple);
+}
+
+#optional-filters-container > div {
+  padding-left: 8px;
+}
+
+summary.custom-radio.selected:hover {
+  background-color: var(--darker-purple);
 }
 
 #api-key-label, #environment-id-label {
@@ -170,18 +230,11 @@ label {
   margin-left: 0.35rem;
 }
 
-.tooltip-icon-small {
-  border-radius: 4px;
-  width: 20px;
-  padding: 1px 2px;
-  margin-left: 0.15rem;
-}
-
 .tooltip-icon:hover {
   background-color: rgba(21, 21, 21, 0.1);
 }
 
-.tooltip-icon:hover, .tooltip-icon-small:hover {
+.tooltip-icon:hover {
   background-color: rgba(21, 21, 21, 0.1);
 }
 

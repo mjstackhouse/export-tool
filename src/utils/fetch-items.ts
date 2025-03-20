@@ -1,23 +1,19 @@
 import { MultipleItemsQuery } from '@kontent-ai/delivery-sdk';
 import createDeliveryClientContainer from './delivery-client';
+import { filteringOperators } from './filtering-operators';
 
 type LastModified = {
   value: Array<string>,
   filter: string
 }
 
-const lastModifiedFilterMap = {
-  'equals': 'equalsFilter',
-  'does not equal': 'notEqualsFilter',
-  'is before': 'lessThanFilter',
-  'is before or the same as': 'lessThanOrEqualToFilter',
-  'is after': 'greaterThanFilter',
-  'is after or the same as': 'greaterThanOrEqualFilter',
-  'is in the range of': 'rangeFilter'
-}
+type FilterMethod = (
+  element: string,
+  value: string | Array<string>,
+  secondValue?: string | Array<string>
+) => MultipleItemsQuery;
 
-export default async function fetchItems(environmentId: string, apiKey: string, types: Array<string>, language: string, workflowStep: string, lastModified?: LastModified, itemName?: string, collection?: string) {
-
+export default async function fetchItems(environmentId: string, apiKey: string, types: Array<string>, language: string, workflowStep: string, lastModified?: LastModified, itemName?: string, collection?: string, elementsToFilter?: (string | string[])[][] | undefined) {
   let deliveryClient = createDeliveryClientContainer(environmentId, apiKey);
 
   let query = deliveryClient.items()
@@ -30,12 +26,7 @@ export default async function fetchItems(environmentId: string, apiKey: string, 
   
   if (lastModified) {
     if (!lastModified.value.includes('')) {
-      const filterName = lastModifiedFilterMap[lastModified.filter as keyof typeof lastModifiedFilterMap];
-
-      type FilterMethod = (
-        element: string,
-        value: string | Array<string>
-      ) => MultipleItemsQuery;
+      const filterName = filteringOperators.date_time[lastModified.filter as keyof typeof filteringOperators.date_time];
 
       if (filterName !== 'rangeFilter') {
         query = (query as unknown as Record<string, FilterMethod>)[filterName]('system.last_modified', lastModified.value[0]);
@@ -54,6 +45,18 @@ export default async function fetchItems(environmentId: string, apiKey: string, 
     query = query.queryConfig({ usePreviewMode: false, useSecuredMode: true });
   } 
   else if (workflowStep === 'draft') query = query.equalsFilter('system.workflow_step', 'draft');
+
+  if (elementsToFilter) {
+    if (elementsToFilter.length > 0) {
+      elementsToFilter.forEach((element) => {
+        const filterMap = filteringOperators[element[0] as keyof typeof filteringOperators];
+        const filterName: string = filterMap[element[1] as keyof typeof filterMap];
+
+        if (filterName !== 'rangeFilter') query = (query as unknown as Record<string, FilterMethod>)[filterName](`elements.${element[2]}`, element[3]);
+        else query = (query as unknown as Record<string, FilterMethod>)[filterName](`elements.${element[2]}`, element[3][0], element[3][1]);
+      })
+    }
+  }
 
   let response = await query.toPromise();
 
