@@ -223,18 +223,22 @@ summary.custom-radio.selected:hover {
   font-size: 16px;
 }
 
-.tooltip-icon {
+.tooltip-icon, .tooltip-icon-small {
   border-radius: 4px;
-  width: 24px;
-  padding: 3px 4px;
   margin-left: 0.35rem;
 }
 
-.tooltip-icon:hover {
-  background-color: rgba(21, 21, 21, 0.1);
+.tooltip-icon {
+  width: 24px;
+  padding: 3px 4px;
 }
 
-.tooltip-icon:hover {
+.tooltip-icon-small {
+  width: 20px;
+  padding: 1px 2.25px;
+}
+
+.tooltip-icon:hover, .tooltip-icon-small:hover {
   background-color: rgba(21, 21, 21, 0.1);
 }
 

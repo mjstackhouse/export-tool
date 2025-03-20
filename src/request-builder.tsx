@@ -910,7 +910,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                 <div id='collection-container' className='flex flex-wrap mb-6'>
                   <label htmlFor='collection' className='basis-full flex place-items-center mb-1.5'>
                     <span className='font-semibold'>Collection</span>
-                    <span className='tooltip-icon' title="This requires the collection's codename. It can be found under 'Environment settings' -> 'Collections', and then by clicking on the {#} button from the right side of the collection's name.">ⓘ</span>
+                    <span className='tooltip-icon-small' title="This requires the collection's codename. It can be found under 'Environment settings' -> 'Collections', and then by clicking on the {#} button from the right side of the collection's name.">ⓘ</span>
                   </label>
                   <input id='collection' type='text' className='basis-full mb-1.5' placeholder="Collection codename" />
                 </div>
