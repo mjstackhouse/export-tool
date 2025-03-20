@@ -925,21 +925,22 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                     <input id='last-modified-range' type='date' className='basis-full mb-3' />
                   </div>
                 </div>
-                <div id='type-to-filter-container' className='hidden flex-wrap mb-3'>
+                <div className='flex flex-wrap mb-6'>
                   <fieldset className='basis-full flex flex-wrap place-items-center'>
                     <legend className='inline-block text-left text-[14px]'>
                       <span className='font-semibold'>Content type's elements</span>
                       <span className='tooltip-icon' title="Filtering by a content type's elements is only available with one content type selected.">ⓘ</span>
                     </legend>
+                    <div id='type-to-filter-container' className='hidden flex-wrap'>
                   {/* Content type's elements */}
                   {
                     contentTypes !== null && contentTypes !== undefined ? 
                       contentTypes.map((type) =>
                         <div id={`${type.system.codename}-filters-container`} className='hidden basis-full flex-wrap mt-3' key={`${type.system.codename}-filters-container`}>
                           {
-                            Object.values(type.elements).map((element) =>
+                            Object.values(type.elements).map((element, index, arr) =>
                               element.type !== 'custom' && element.type !== 'asset' ? 
-                                <div className={`basis-full relative flex flex-wrap pl-6 mb-5 type-filters-container`} key={`${element.codename}-container`}>
+                                <div className={`basis-full relative flex flex-wrap pl-6 ${ index !== arr.length - 1 ? 'mb-5' : ''} type-filters-container`} key={`${element.codename}-container`}>
                                   <label id={element.codename} htmlFor={`${element.codename}-input`} className='basis-full flex place-items-center mb-1.5'>
                                     {element.name} 
                                     <span className='ml-1.5 text-gray-600'>
@@ -1004,6 +1005,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                       )
                       : <p>No content types found.</p>
                     }
+                    </div>
                   </fieldset>
                 </div>
               </details>
