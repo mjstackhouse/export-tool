@@ -24,6 +24,11 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     [key: string]: any;
   }
 
+  interface OneContentTypeSelectedInfo {
+    boolean: boolean,
+    initialLoad: boolean
+  }
+
   const [insideKontentAi, setInsideKontentAi] = useState<boolean>(false);
   const [environmentId, setEnvironmentId] = useState<string>('');
   const [apiKey, setAPIKey] = useState<string>('');
@@ -36,6 +41,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
   const [validAPIKey, setValidAPIKey] = useState<boolean>(false);
   const [validConfigAPIKey, setValidConfigAPIKey] = useState<boolean>(false);
   const [elementFilterInputValues, setElementFilterInputValues] = useState<ObjectWithArrays>({});
+  const [oneContentTypeSelected, setOneContentTypeSelected] = useState<OneContentTypeSelectedInfo>({ boolean: false, initialLoad: true });
 
   async function handleSubmit(event: FormEvent, type: string) {
     event.preventDefault();
@@ -359,6 +365,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
           }
         })
       }
+      setOneContentTypeSelected({boolean: true, initialLoad: false});
     }
     else {
       if (filterElementsContainer) filterElementsContainer.style.display = 'none';
@@ -372,6 +379,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
           }
         })
       }
+      setOneContentTypeSelected({boolean: false, initialLoad: false});
     }
   }
 
@@ -560,8 +568,8 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     }
   }
 
-  useEffect(() => {                        
-    if (Object.keys(elementFilterInputValues).length === 0) {
+  useEffect(() => {
+    if (Object.keys(elementFilterInputValues).length === 0 && oneContentTypeSelected.initialLoad === true) {
       const apiKeyError = document.getElementById('api-key-error') as HTMLElement;
       const noItemsError = document.getElementById('no-items-error') as HTMLElement;
       const contentTypeError = document.getElementById('content-type-error') as HTMLElement;
@@ -762,7 +770,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
         });
       }
     }
-  }, [contextResponse, apiKey, validAPIKey, elementFilterInputValues])
+  }, [contextResponse, apiKey, validAPIKey, elementFilterInputValues, oneContentTypeSelected])
 
   return (
     <div className='flex flex-wrap basis-full'>
@@ -929,82 +937,88 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                   <fieldset className='basis-full flex flex-wrap place-items-center'>
                     <legend className='inline-block text-left text-[14px]'>
                       <span className='font-semibold'>Content type's elements</span>
-                      <span className='tooltip-icon' title="Filtering by a content type's elements is only available with one content type selected.">ⓘ</span>
                     </legend>
+                    {
+                      oneContentTypeSelected.boolean === false ?
+                        <aside className='text-[14px] mt-1.5 bg-gray-100 p-4 rounded-xl'>
+                          <span className='italic'>Filtering by a content type's elements is only available when one content type is selected.</span>
+                        </aside>
+                      : null
+                    }
                     <div id='type-to-filter-container' className='hidden flex-wrap'>
-                  {/* Content type's elements */}
-                  {
-                    contentTypes !== null && contentTypes !== undefined ? 
-                      contentTypes.map((type) =>
-                        <div id={`${type.system.codename}-filters-container`} className='hidden basis-full flex-wrap mt-3' key={`${type.system.codename}-filters-container`}>
-                          {
-                            Object.values(type.elements).map((element, index, arr) =>
-                              element.type !== 'custom' && element.type !== 'asset' ? 
-                                <div className={`basis-full relative flex flex-wrap pl-6 ${ index !== arr.length - 1 ? 'mb-5' : ''} type-filters-container`} key={`${element.codename}-container`}>
-                                  <label id={element.codename} htmlFor={`${element.codename}-input`} className='basis-full flex place-items-center mb-1.5'>
-                                    {element.name} 
-                                    <span className='ml-1.5 text-gray-600'>
-                                      ({element.type !== 'modular_content' ? element.type.replace('_', ' ') : 'linked items'})
-                                    </span>
+                    {/* Content type's elements */}
+                    {
+                      contentTypes !== null && contentTypes !== undefined ? 
+                        contentTypes.map((type) =>
+                          <div id={`${type.system.codename}-filters-container`} className='hidden basis-full flex-wrap mt-3' key={`${type.system.codename}-filters-container`}>
+                            {
+                              Object.values(type.elements).map((element, index, arr) =>
+                                element.type !== 'custom' && element.type !== 'asset' ? 
+                                  <div className={`basis-full relative flex flex-wrap pl-6 ${ index !== arr.length - 1 ? 'mb-5' : ''} type-filters-container`} key={`${element.codename}-container`}>
+                                    <label id={element.codename} htmlFor={`${element.codename}-input`} className='basis-full flex place-items-center mb-1.5'>
+                                      {element.name} 
+                                      <span className='ml-1.5 text-gray-600'>
+                                        ({element.type !== 'modular_content' ? element.type.replace('_', ' ') : 'linked items'})
+                                      </span>
+                                      {
+                                        element.type === 'modular_content' || element.type === 'multiple_choice' || element.type === 'subpages' || element.type === 'taxonomy'
+                                        ?
+                                          <span className='tooltip-icon' title="The value(s) must be the codenames of what you would like to filter by. You can find the codename for all entities by looking for the text 'Codename' or this symbol: {#}">ⓘ</span>
+                                        : null
+                                      }
+                                    </label>
+                                    <select id={`${element.codename}-filter`} className='type-filter-operator' onChange={(e) => handleAddBtnDisplay(e.target, element.type)}>
+                                      { Object.entries(filteringOperators[element.type as keyof typeof filteringOperators]).map((filter) =>
+                                          <option value={filter[0]} key={filter[0]}>
+                                            {filter[0]}
+                                          </option>
+                                        )
+                                      }
+                                    </select>
+                                    <div id={`${type.system.codename}-${element.codename}-values-container`} className='hidden flex flex-wrap'>
+                                    {
+                                      Object.keys(elementFilterInputValues).length > 0 && Object.keys(elementFilterInputValues).includes(type.system.codename) ?
+                                        Object.keys(elementFilterInputValues[type.system.codename]).includes(element.codename!) ? 
+                                          Object.entries(elementFilterInputValues[type.system.codename][element.codename as keyof typeof elementFilterInputValues]).map((obj) =>
+                                            <span id={obj[0]} className='type-element-values mb-3' key={obj[0]}>
+                                              {obj[1] as string}
+                                              <button type='button' className='delete-btn' title='Remove value' onClick={(e) => handleDeleteValues(e.target as HTMLButtonElement)}>
+                                              ╳
+                                              </button>
+                                            </span>
+                                          )
+                                        : null
+                                      : null
+                                    }
+                                    </div>
+                                    {
+                                      element.type !== 'date_time' && element.type !== 'number' ?
+                                        <input id={`${element.codename}-input`} type='text' className='basis-full type-filters mb-1.5' onKeyDownCapture={(e) => { e.key === 'Enter' ? handleEnterPress(e) : null }} />
+                                      :
+                                      <div className='basis-full flex flex-wrap num-filter-container'>
+                                        <input id={`${element.codename}-input`} ref={createRef} type={element.type === 'date_time' ? 'date' : 'number'} className={`basis-full type-filters mb-1.5`} onKeyDownCapture={(e) => { e.key === 'Enter' ? handleEnterPress(e) : null }} />
+                                        <div id={`${element.codename}-range-container`} className='basis-full hidden flex-wrap'>
+                                          <p className='basis-full text-left mb-1.5 py-[0.25rem] px-[0.5rem] text-[14px]'>and</p>
+                                          <input id={`${element.codename}-range`}  type={element.type === 'date_time' ? 'date' : 'number'} className='basis-full type-filters mb-3' />
+                                        </div>
+                                      </div>
+                                    }
                                     {
                                       element.type === 'modular_content' || element.type === 'multiple_choice' || element.type === 'subpages' || element.type === 'taxonomy'
                                       ?
-                                        <span className='tooltip-icon' title="The value(s) must be the codenames of what you would like to filter by. You can find the codename for all entities by looking for the text 'Codename' or this symbol: {#}">ⓘ</span>
+                                        <button id={`${element.codename}-add-btn`} type='button' className='hidden btn continue-btn place-self-end mt-3 mb-3' onClick={(e) => handleAddValues(e.target as HTMLButtonElement)}>
+                                          Add value
+                                        </button>
                                       : null
                                     }
-                                  </label>
-                                  <select id={`${element.codename}-filter`} className='type-filter-operator' onChange={(e) => handleAddBtnDisplay(e.target, element.type)}>
-                                    { Object.entries(filteringOperators[element.type as keyof typeof filteringOperators]).map((filter) =>
-                                        <option value={filter[0]} key={filter[0]}>
-                                          {filter[0]}
-                                        </option>
-                                      )
-                                    }
-                                  </select>
-                                  <div id={`${type.system.codename}-${element.codename}-values-container`} className='hidden flex flex-wrap'>
-                                  {
-                                    Object.keys(elementFilterInputValues).length > 0 && Object.keys(elementFilterInputValues).includes(type.system.codename) ?
-                                      Object.keys(elementFilterInputValues[type.system.codename]).includes(element.codename!) ? 
-                                        Object.entries(elementFilterInputValues[type.system.codename][element.codename as keyof typeof elementFilterInputValues]).map((obj) =>
-                                          <span id={obj[0]} className='type-element-values mb-3' key={obj[0]}>
-                                            {obj[1] as string}
-                                            <button type='button' className='delete-btn' title='Remove value' onClick={(e) => handleDeleteValues(e.target as HTMLButtonElement)}>
-                                            ╳
-                                            </button>
-                                          </span>
-                                        )
-                                      : null
-                                    : null
-                                  }
                                   </div>
-                                  {
-                                    element.type !== 'date_time' && element.type !== 'number' ?
-                                      <input id={`${element.codename}-input`} type='text' className='basis-full type-filters mb-1.5' onKeyDownCapture={(e) => { e.key === 'Enter' ? handleEnterPress(e) : null }} />
-                                    :
-                                    <div className='basis-full flex flex-wrap num-filter-container'>
-                                      <input id={`${element.codename}-input`} ref={createRef} type={element.type === 'date_time' ? 'date' : 'number'} className={`basis-full type-filters mb-1.5`} onKeyDownCapture={(e) => { e.key === 'Enter' ? handleEnterPress(e) : null }} />
-                                      <div id={`${element.codename}-range-container`} className='basis-full hidden flex-wrap'>
-                                        <p className='basis-full text-left mb-1.5 py-[0.25rem] px-[0.5rem] text-[14px]'>and</p>
-                                        <input id={`${element.codename}-range`}  type={element.type === 'date_time' ? 'date' : 'number'} className='basis-full type-filters mb-3' />
-                                      </div>
-                                    </div>
-                                  }
-                                  {
-                                    element.type === 'modular_content' || element.type === 'multiple_choice' || element.type === 'subpages' || element.type === 'taxonomy'
-                                    ?
-                                      <button id={`${element.codename}-add-btn`} type='button' className='hidden btn continue-btn place-self-end mt-3 mb-3' onClick={(e) => handleAddValues(e.target as HTMLButtonElement)}>
-                                        Add value
-                                      </button>
-                                    : null
-                                  }
-                                </div>
-                              : null
-                            )
-                          }
-                        </div>
-                      )
-                      : <p>No content types found.</p>
-                    }
+                                : null
+                              )
+                            }
+                          </div>
+                        )
+                        : <p>No content types found.</p>
+                      }
                     </div>
                   </fieldset>
                 </div>
