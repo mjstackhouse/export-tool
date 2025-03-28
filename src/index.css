@@ -133,6 +133,7 @@ input[type="radio"], input[type="checkbox"] {
 summary::marker {
   font-size: 16px;
   color: var(--orange);
+  margin-right: 1rem;
 }
 
 details > .type-filters-summary {
@@ -154,6 +155,10 @@ summary {
 
 summary:hover {
   background-color: var(--lighter-orange);
+}
+
+.section-heading {
+  margin-left: 1rem;
 }
 
 .input-container, label.type-filters:hover {
@@ -212,10 +217,6 @@ input[type=number]::-webkit-outer-spin-button {
   border-left: 2px solid var(--purple);
   border-right: 2px solid var(--purple);
   border-bottom: 2px solid var(--purple);
-}
-
-#optional-filters-container > div {
-  padding-left: 8px;
 }
 
 summary.custom-radio.selected:hover {

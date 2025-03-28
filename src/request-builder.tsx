@@ -19,6 +19,18 @@ type Config = {
   deliveryKey?: string;
 }
 
+type SystemObj = {
+  codename: string,
+  collection: string,
+  id: string,
+  language: string,
+  lastModified: string,
+  name: string,
+  type: string,
+  workflow: string,
+  workflowStep: string
+}
+
 export default function RequestBuilder({ contextResponse, workbook }: RequestBuilderProps) {
   interface ObjectWithArrays {
     [key: string]: any;
@@ -33,6 +45,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
   const [environmentId, setEnvironmentId] = useState<string>('');
   const [apiKey, setAPIKey] = useState<string>('');
   const [apiKeyErrorText, setAPIKeyErrorText] = useState<string>('');
+  const [environmentIdErrorText, setEnvironmentIdErrorText] = useState<string>('');
   const [contentTypes, setContentTypes] = useState<Array<IContentType>>();
   const [languages, setLanguages] = useState<Array<ILanguage>>();
   const [loadingText, setLoadingText] = useState<string>('Checking custom app configuration...');
@@ -47,6 +60,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     event.preventDefault();
 
     const apiKeyError = document.getElementById('api-key-error') as HTMLElement;
+    const environmentIdError = document.getElementById('environment-id-error') as HTMLElement;
     const noItemsError = document.getElementById('no-items-error') as HTMLElement;
     const contentTypeError = document.getElementById('content-type-error') as HTMLElement;
     const languageError = document.getElementById('language-error') as HTMLElement;
@@ -61,19 +75,41 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
       const environmentIdInput = document.getElementById('environment-id') as HTMLInputElement;
       const keyInput = document.getElementById('api-key') as HTMLInputElement;
 
-      if (environmentIdInput !== null) {
-        setEnvironmentId(environmentIdInput.value);
+      if (environmentIdInput && keyInput) {
+        if (environmentIdInput.value !== '' && keyInput.value !== '') {
+          if (apiKeyError) apiKeyError.style.display = 'none';
+          if (environmentIdError) environmentIdError.style.display = 'none';
+
+          setAPIKey(keyInput.value.trim());
+          setLoadingText('Validating your API key...');
+          setEnvironmentId(environmentIdInput.value);
+        }
+        else {
+          if (environmentIdInput.value === '') {
+            if (environmentIdError) environmentIdError.style.display = 'block';
+            setEnvironmentIdErrorText('Please provide an environment ID.');
+          }
+          else {
+            if (environmentIdError) environmentIdError.style.display = 'none';
+          } 
+          
+          if (keyInput.value === '') {
+            if (apiKeyError) apiKeyError.style.display = 'block';
+            setAPIKeyErrorText('Please provide an API key.');
+          }
+          else {
+            if (apiKeyError) apiKeyError.style.display = 'none';
+          }
+        }
       }
-      setAPIKey(keyInput.value.trim());
-      setLoadingText('Validating your API key...');
     }
     else {
-      const selectedTypes = document.querySelectorAll('input[type="checkbox"]:checked');
+      const selectedTypes = document.querySelectorAll('input[type="checkbox"].content-type:checked');
       const selectedLanguage = document.querySelector('input[name="language"]:checked') as HTMLInputElement;
       const selectedWorkflowStep = document.querySelector('input[name="content-workflow-step"]:checked') as HTMLInputElement;
       const selectedFileTypeInput = document.querySelector('input[name="file-type"]:checked') as HTMLInputElement;
       
-      const itemName = (document.getElementById('item-name') as HTMLInputElement).value.trim();
+      const itemName = (document.getElementById('filter-item-name') as HTMLInputElement).value.trim();
       const collection = (document.getElementById('collection') as HTMLInputElement).value.trim();
 
       let elementsToFilter: (string | string[])[][] | undefined = [];
@@ -125,7 +161,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
               let value;
 
               if (filteringOperatorKeys!.includes(elementFilteringOperators[index].value) && filteringOperatorKeys![0] !== elementFilteringOperators[index].value) {
-                const elementCodename = elementInput.id.match(/^([a-zA-Z_]+)/);
+                const elementCodename = elementInput.id.match(/-([a-zA-Z_]+)-/);
 
                 let possibleValues: string | any[] = [];
 
@@ -196,6 +232,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
       }
       else {
         if (apiKeyError) apiKeyError.style.display = 'none';
+        if (environmentIdError) environmentIdError.style.display = 'none';
         if (noItemsError) noItemsError.style.display = 'none';
         if (contentTypeError) contentTypeError.style.display = 'none';
         if (languageError) languageError.style.display = 'none';
@@ -213,7 +250,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
         const types: Array<string>= [];
 
         selectedTypes.forEach((checkbox) => {
-          if ((checkbox as HTMLInputElement).value !== 'select-all') types.push((checkbox as HTMLInputElement).value);
+          if ((checkbox as HTMLInputElement).value !== 'select-all-types') types.push((checkbox as HTMLInputElement).value);
         });
   
         let selectedFileType: string = '';
@@ -225,7 +262,18 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
             const noItemsError = document.getElementById('no-items-error') as HTMLElement;
             if (noItemsError) noItemsError.style.display = 'none';
 
+            const selectedAdditionalDataInputs = document.querySelectorAll('.additional-data-options:checked');
+            let selectedAdditionalData: Array<string> = [];
+
+            if (selectedAdditionalDataInputs) {
+              for (const node of selectedAdditionalDataInputs.values()) {
+                selectedAdditionalData.push(node.id.split('-')[1]);
+              }
+            }
+
             const itemsValues = data.items.map((item) => Object.entries(item.elements).map(obj => (obj[1].type !== 'modular_content' && obj[1].type !== 'asset' && obj[1].type !== 'taxonomy' && obj[1].type !== 'multiple_choice' ? obj[1].value : (obj[1].type === 'modular_content' ? obj[1].value.join(',') : (obj[1].type === 'asset' ? obj[1].value.map((asset: { url: string; }) => asset.url).join(',') : obj[1].value.map((val: { name: string; }) => val.name).join(','))))));
+
+            const itemsSystemData: Array<SystemObj> = data.items.map((item) => item.system) as Array<SystemObj>;
             const items = data.items.map((item) => Object.entries(item.elements).map(obj => ({ [obj[1].name]: obj[1].value })));
     
             let currentType = data.items[0].system.type;
@@ -233,20 +281,33 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
             let currentItems = [];
     
             for (let i = 0; i < data.items.length; i++) {
+              // Standard item processing
               if (data.items[i].system.type === currentType && i !== data.items.length - 1) {
-                currentItems.push(itemsValues[i]);
+                if (selectedAdditionalData) {
+                  const currentItemSystemData = selectedAdditionalData.map((systemKey) => itemsSystemData[i][systemKey as keyof SystemObj]);
+                  currentItems.push(currentItemSystemData.concat(itemsValues[i]));
+                } 
+                else currentItems.push(itemsValues[i]);
               }
               // The final item is not the only of its type
               else if (data.items[i].system.type === currentType && i === data.items.length - 1) {
-                currentItems.push(itemsValues[i]);
+                if (selectedAdditionalData) {
+                  const currentItemSystemData = selectedAdditionalData.map((systemKey) => itemsSystemData[i][systemKey as keyof SystemObj]);
+                  currentItems.push(currentItemSystemData.concat(itemsValues[i]));
+                }
+                else currentItems.push(itemsValues[i]);
 
                 let currentKeys;
+
+                if (selectedAdditionalData) currentKeys = [...selectedAdditionalData];
     
                 // Some of the below logic comes from: https://stackoverflow.com/a/64213063
-                if (items.length > 1) currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
+                if (items.length > 1 && selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
+                else if (items.length > 1) currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
                 else currentKeys = [items[i].map(obj => Object.entries(obj)[0][0])];
+
                 currentWorksheet = XLSX.utils.book_new();
-    
+
                 XLSX.utils.sheet_add_aoa(currentWorksheet, currentKeys);
                 XLSX.utils.sheet_add_json(currentWorksheet, currentItems, { origin: 'A2', skipHeader: true });
     
@@ -254,7 +315,11 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
               }
               // The final item is the only of its type
               else if (data.items[i].system.type !== currentType && i === data.items.length - 1) {
-                let currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
+                let currentKeys;
+
+                if (selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
+                else currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
+
                 currentWorksheet = XLSX.utils.book_new();
     
                 XLSX.utils.sheet_add_aoa(currentWorksheet, currentKeys);
@@ -264,9 +329,16 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
 
                 // Now handling the final item/type
                 currentItems = [];
-                currentItems.push(itemsValues[i]);
+
+                if (selectedAdditionalData) {
+                  const currentItemSystemData = selectedAdditionalData.map((systemKey) => itemsSystemData[i][systemKey as keyof SystemObj]);
+                  currentItems.push(currentItemSystemData.concat(itemsValues[i]));
+                } 
+                else currentItems.push(itemsValues[i]);
     
-                currentKeys = [items[i].map(obj => Object.entries(obj)[0][0])];
+                if (selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i].map(obj => Object.entries(obj)[0][0]))];
+                else currentKeys = [items[i].map(obj => Object.entries(obj)[0][0])];
+
                 currentWorksheet = XLSX.utils.book_new();
     
                 XLSX.utils.sheet_add_aoa(currentWorksheet, currentKeys);
@@ -274,8 +346,13 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     
                 if (currentWorksheet) XLSX.utils.book_append_sheet(workbook, currentWorksheet, data.items[i].system.type);
               }
+              // The item is the last of its type, but isn't the only one, and isn't the final item
               else {
-                const currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
+                let currentKeys = [];
+
+                if (selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
+                else currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
+
                 currentWorksheet = XLSX.utils.book_new();
     
                 XLSX.utils.sheet_add_aoa(currentWorksheet, currentKeys);
@@ -285,7 +362,12 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     
                 currentItems = [];
                 currentType = data.items[i].system.type;
-                currentItems.push(itemsValues[i]);
+
+                if (selectedAdditionalData) {
+                  const currentItemSystemData = selectedAdditionalData.map((systemKey) => itemsSystemData[i][systemKey as keyof SystemObj]);
+                  currentItems.push(currentItemSystemData.concat(itemsValues[i]));
+                } 
+                else currentItems.push(itemsValues[i]);
               }
             }
 
@@ -325,9 +407,12 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
 
   function handleBackBtn() {
     setValidAPIKey(false);
+    setEnvironmentId('');
     setAPIKey('');
     setContentTypes([]);
     setLanguages([]);
+    setElementFilterInputValues({});
+    setOneContentTypeSelected({boolean: false, initialLoad: true});
   }
 
   function handleRange(operatorType: string) {
@@ -342,7 +427,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
   }
 
   function handleTypeFilterSelection() {
-    const selectedCheckboxes = document.querySelectorAll('input[type="checkbox"]:checked') as NodeListOf<HTMLInputElement>;
+    const selectedCheckboxes = document.querySelectorAll('input[type="checkbox"].content-type:checked') as NodeListOf<HTMLInputElement>;
     const filterElementsContainer = document.getElementById('type-to-filter-container');
 
     if (selectedCheckboxes.length === 1) {
@@ -389,7 +474,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
       const selectedTypes = document.querySelectorAll('input[type="checkbox"]:checked');
 
       if (valueInput && selectedTypes.length === 1) {
-        const elementCodename = valueInput.id.match(/^([a-zA-Z_]+)/);
+        const elementCodename = valueInput.id.match(/-([a-zA-Z_]+)-/);
 
         if (elementCodename && valueInput.value !== '') {
           const elementValuesContainer = document.getElementById(`${selectedTypes[0].id}-${elementCodename[1]}-values-container`);
@@ -419,7 +504,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                         ...elementFilterInputValues[selectedTypes[0].id],
                         [elementCodename[1]]: {
                           ...elementFilterInputValues[selectedTypes[0].id][elementCodename[1]],
-                          [`${elementCodename[1]}-value-${lastChildNum + 1}`]: valueInput.value
+                          [`${selectedTypes[0].id}-${elementCodename[1]}-value-${lastChildNum + 1}`]: valueInput.value.trim()
                         }
                       }
                     });
@@ -431,7 +516,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                       [selectedTypes[0].id]: {
                         ...elementFilterInputValues[selectedTypes[0].id],
                         [elementCodename[1]]: {
-                          [`${elementCodename[1]}-value-${lastChildNum + 1}`]: valueInput.value
+                          [`${selectedTypes[0].id}-${elementCodename[1]}-value-${lastChildNum + 1}`]: valueInput.value.trim()
                         }
                       }
                     });
@@ -443,7 +528,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                     ...elementFilterInputValues,
                     [selectedTypes[0].id]: {
                       [elementCodename[1]]: {
-                        [`${elementCodename[1]}-${lastChildNum + 1}`]: valueInput.value
+                        [`${selectedTypes[0].id}-${elementCodename[1]}-value-${lastChildNum + 1}`]: valueInput.value.trim()
                       }
                     }
                   });
@@ -454,7 +539,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                 setElementFilterInputValues({
                   [selectedTypes[0].id]: {
                     [elementCodename[1]]: {
-                      [`${elementCodename[1]}-${lastChildNum + 1}`]: valueInput.value
+                      [`${selectedTypes[0].id}-${elementCodename[1]}-value-${lastChildNum + 1}`]: valueInput.value.trim()
                     }
                   }
                 });
@@ -468,7 +553,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                     [selectedTypes[0].id]: {
                       ...elementFilterInputValues[selectedTypes[0].id],
                       [elementCodename[1]]: {
-                        [`${elementCodename[1]}-value-1`]: valueInput.value
+                        [`${selectedTypes[0].id}-${elementCodename[1]}-value-1`]: valueInput.value.trim()
                       }
                     }
                   });
@@ -487,7 +572,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
       const selectedTypes = document.querySelectorAll('input[type="checkbox"]:checked');
 
       if (valueSpan) {
-        const elementCodename = valueSpan.id.match(/^([a-zA-Z_]+)/);
+        const elementCodename = valueSpan.id.match(/-([a-zA-Z_]+)-/);
 
         if (elementCodename) {
           let currentValues = {...elementFilterInputValues[selectedTypes[0].id][elementCodename[1]]};
@@ -507,31 +592,19 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     }
   }
 
-  function handleAddBtnDisplay(target: EventTarget & HTMLSelectElement, elementType: string) {
+  function handleAddBtnDisplay(target: EventTarget & HTMLSelectElement, elementType: string, idPrefix: string) {
     const filterValue = target.value;
-    const elementCodenameMatches = target.id.match(/^([a-zA-Z_]+)/);
-    let elementCodename;
-    if (elementCodenameMatches) elementCodename = elementCodenameMatches[1];
+    let valuesContainerId, valuesContainer;
 
-    let typeFiltersContainerId, type, typeMatches, valuesContainerId, valuesContainer;
-
-    if (elementCodename) {
-      const parentDiv = target.parentElement;
-      const typeFiltersContainer = parentDiv?.parentElement;
-
-      if (typeFiltersContainer) typeFiltersContainerId = typeFiltersContainer.id;
-      if (typeFiltersContainerId) typeMatches = typeFiltersContainerId.match(/^([a-zA-Z_]+)/);
-      if (typeMatches) type = typeMatches[1];
-      if (type) valuesContainerId = `${type}-${elementCodename}-values-container`;
-      if (valuesContainerId) valuesContainer = document.getElementById(valuesContainerId);
-    }
+    if (idPrefix) valuesContainerId = `${idPrefix}-values-container`;
+    if (valuesContainerId) valuesContainer = document.getElementById(valuesContainerId);
 
     const filteringOperatorKeys = Object.keys(filteringOperators[elementType as keyof typeof filteringOperators]);
     filteringOperatorKeys.shift();
 
     if (filteringOperatorKeys.includes(filterValue)) {
-      if (elementCodename) {
-        const addBtnId = `${elementCodename}-add-btn`;
+      if (idPrefix) {
+        const addBtnId = `${idPrefix}-add-btn`;
         const addBtn = document.getElementById(addBtnId);
 
         if (valuesContainer) valuesContainer.style.display = 'flex';
@@ -539,8 +612,8 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
       }
     }
     else {
-      if (elementCodename) {
-        const addBtnId = `${elementCodename}-add-btn`;
+      if (idPrefix) {
+        const addBtnId = `${idPrefix}-add-btn`;
         const addBtn = document.getElementById(addBtnId);
         
         if (valuesContainer) valuesContainer.style.display = 'none';
@@ -548,7 +621,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
       }
     }
 
-    const rangeContainer = document.getElementById(`${elementCodename}-range-container`);
+    const rangeContainer = document.getElementById(`${idPrefix}-range-container`);
 
     if (filterValue === 'is in the range of') {
       if (rangeContainer) rangeContainer.style.display = 'flex';
@@ -571,6 +644,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
   useEffect(() => {
     if (Object.keys(elementFilterInputValues).length === 0 && oneContentTypeSelected.initialLoad === true) {
       const apiKeyError = document.getElementById('api-key-error') as HTMLElement;
+      const environmentIdError = document.getElementById('environment-id-error') as HTMLElement;
       const noItemsError = document.getElementById('no-items-error') as HTMLElement;
       const contentTypeError = document.getElementById('content-type-error') as HTMLElement;
       const languageError = document.getElementById('language-error') as HTMLElement;
@@ -582,6 +656,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
       if (loadingExportSpinner) loadingExportSpinner.style.display = 'none';    
       if (loadingContainer) loadingContainer.style.display = 'flex';
       if (apiKeyError) apiKeyError.style.display = 'none';
+      if (environmentIdError) environmentIdError.style.display = 'none';
       if (noItemsError) noItemsError.style.display = 'none';
       if (contentTypeError) contentTypeError.style.display = 'none';
       if (languageError) languageError.style.display = 'none';
@@ -631,13 +706,17 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
             secureAccessTest(environmentId, apiKey).then(async (response) => {
               if (typeof response === 'string') {
                 if (loadingContainer) loadingContainer.style.display = 'none';
-                if (apiKeyError) apiKeyError.style.display = 'block';
+
+                if (environmentIdError && response[0] === 'N') environmentIdError.style.display = 'block';
+                else if (apiKeyError) apiKeyError.style.display = 'block';
+                
                 if (contextResponse.config) {
                   if ((contextResponse.config as Config).deliveryKey) {
                     setValidConfigAPIKey(false);
                     setAPIKeyErrorText("Missing or invalid key. Please adjust the custom app's configuration, or input a valid key above.");
-                  } 
+                  }
                 }
+                else if (response[0] === 'N') setEnvironmentIdErrorText("Please make sure your environment ID is valid.");
                 else setAPIKeyErrorText("Invalid key. Please make sure your key has 'Secure access' enabled.");
               }
               else {
@@ -706,9 +785,13 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
 
             secureAccessTest(environmentId, apiKey).then(async (response) => {
               if (typeof response === 'string') {
-                setAPIKeyErrorText("Invalid key. Please make sure your key has 'Secure access' enabled.");
+                if (response[0] === 'N') setEnvironmentIdErrorText("Please make sure your environment ID is valid.");
+                else setAPIKeyErrorText("Invalid key. Please make sure your key has 'Secure access' enabled.");
+
                 if (loadingContainer) loadingContainer.style.display = 'none';
-                if (apiKeyError) apiKeyError.style.display = 'block';
+
+                if (environmentIdError && response[0] === 'N') environmentIdError.style.display = 'block';
+                else if (apiKeyError) apiKeyError.style.display = 'block';
               }
               else {
                 previewTest(environmentId, apiKey).then(async (response) => {
@@ -759,18 +842,29 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
         }
       }
 
-      const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-      const selectAllCheckbox = document.getElementById('select-all');
+      const typeCheckboxes = document.querySelectorAll('input[type="checkbox"].content-type');
+      const selectAllTypeCheckboxes = document.getElementById('select-all-types');
 
-      if (checkboxes.length > 0 && selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-          for (let i = 0; i < checkboxes.length; i++) {
-            (checkboxes[i] as HTMLInputElement).checked = (this as HTMLInputElement).checked;
+      if (typeCheckboxes.length > 0 && selectAllTypeCheckboxes) {
+        selectAllTypeCheckboxes.addEventListener('change', function() {
+          for (let i = 0; i < typeCheckboxes.length; i++) {
+            (typeCheckboxes[i] as HTMLInputElement).checked = (this as HTMLInputElement).checked;
+          }
+        });
+      }
+
+      const dataCheckboxes = document.querySelectorAll('input[type="checkbox"].additional-data-options');
+      const selectAllDataCheckboxes = document.getElementById('select-all-data');
+
+      if (dataCheckboxes.length > 0 && selectAllDataCheckboxes) {
+        selectAllDataCheckboxes.addEventListener('change', function() {
+          for (let i = 0; i < dataCheckboxes.length; i++) {
+            (dataCheckboxes[i] as HTMLInputElement).checked = (this as HTMLInputElement).checked;
           }
         });
       }
     }
-  }, [contextResponse, apiKey, validAPIKey, elementFilterInputValues, oneContentTypeSelected])
+  }, [contextResponse, apiKey, environmentId, validAPIKey, elementFilterInputValues, oneContentTypeSelected])
 
   return (
     <div className='flex flex-wrap basis-full'>
@@ -793,7 +887,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
               <details className='basis-full flex flex-wrap' open>
                 <summary className='basis-full'>
                   <div className='relative'>
-                    <legend className='font-bold text-[16px] text-left'>
+                    <legend className='font-bold text-[16px] text-left section-heading'>
                       Content types
                       <span className='tooltip-icon' title='These are the content types of the items that will be exported.'>ⓘ</span>
                     </legend>
@@ -802,19 +896,19 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                     </p>
                   </div>
                 </summary>
-                <div className='basis-full flex mb-3'>
-                  <label htmlFor='select-all' className='input-container flex place-items-center'>
-                    <input type='checkbox' className='mr-[8px] accent-(--purple)' id='select-all' value='select-all'/>
+                <div className='basis-full flex mb-3 pl-10'>
+                  <label htmlFor='select-all-types' className='input-container flex place-items-center'>
+                    <input type='checkbox' className='mr-[8px] accent-(--purple)' id='select-all-types' value='select-all-types'/>
                     Select all
                   </label>
                 </div>
-                <div className='pl-8 flex flex-wrap'>
+                <div className='pl-18 flex flex-wrap'>
                 {
                   contentTypes !== null && contentTypes !== undefined ?
                       contentTypes.map((type, index) =>
-                        <div className={`flex flex-wrap basis-full ${index === contentTypes.length - 1 ? 'mb-6' : 'mb-3'}`} key={`${type.system.codename}-container`}>
+                        <div className={`flex flex-wrap basis-full  ${index === contentTypes.length - 1 ? 'mb-6' : 'mb-3'}`} key={`${type.system.codename}-container`}>
                           <label htmlFor={type.system.codename} className='input-container flex place-items-center mb-1.5'>
-                            <input type='checkbox' className='mr-[8px] accent-(--purple)' id={type.system.codename} value={type.system.codename} onChange={() => handleTypeFilterSelection()}/>
+                            <input type='checkbox' className='mr-[8px] accent-(--purple) content-type' id={type.system.codename} value={type.system.codename} onChange={() => handleTypeFilterSelection()}/>
                             {type.system.name}
                           </label>
                         </div>
@@ -829,7 +923,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
               <details className='basis-full flex flex-wrap' open>
                 <summary className='basis-full'>
                   <div className='relative'>
-                    <legend className='font-bold text-[16px] text-left'>
+                    <legend className='font-bold text-[16px] text-left section-heading'>
                       Language
                       <span className='tooltip-icon' title='These are the languages your content items can be exported in.'>ⓘ</span>
                     </legend>
@@ -838,7 +932,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                     </p>
                   </div>
                 </summary>
-                <div className='flex flex-wrap'>
+                <div className='flex flex-wrap pl-10'>
                 {
                   languages !== null && languages !== undefined  ?
                       languages.map((lang, index) =>
@@ -859,7 +953,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
               <details className='basis-full flex flex-wrap' open>
                 <summary className='basis-full'>
                   <div className='relative'>
-                    <legend className='font-bold text-[16px] text-left'>
+                    <legend className='font-bold text-[16px] text-left section-heading'>
                         Workflow step
                       <span className='tooltip-icon' title='Be sure to choose a workflow step that your selected content type(s) items are available in. If they are not available, they will not be exported.'>
                         ⓘ
@@ -870,19 +964,19 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                     </p>
                   </div>
                 </summary>
-                <div className='basis-full flex mb-3'>
+                <div className='basis-full flex mb-3 pl-10'>
                   <label htmlFor='latest-version-radio-btn' className='input-container flex place-items-center'>
                     <input type='radio' id='latest-version-radio-btn' className='mr-[8px] accent-(--purple)' name='content-workflow-step' value={'latest-version'} />
                     Any (latest version)
                   </label>
                 </div>
-                <div className='basis-full flex mb-3'>
+                <div className='basis-full flex mb-3 pl-10'>
                   <label htmlFor='published-radio-btn' className='input-container flex place-items-center'>
                     <input type='radio' id='published-radio-btn' className='mr-[8px] accent-(--purple)' name='content-workflow-step' value={'published'} />
                     Published
                   </label>
                 </div>
-                <div className='basis-full flex mb-6'>
+                <div className='basis-full flex mb-6 pl-10'>
                   <label htmlFor='draft-radio-btn' className='input-container flex place-items-center'>
                     <input type='radio' id='draft-radio-btn' className='mr-[8px] accent-(--purple)' name='content-workflow-step' value={'draft'} />
                     Draft
@@ -891,30 +985,30 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
               </details>
             </fieldset>
             {/* Optional filters */}
-            <fieldset className='basis-full flex flex-wrap mb-6'>
+            <fieldset className='basis-full flex flex-wrap'>
               <details id='optional-filters-container' className='basis-full'>
                 <summary>
                   <div className='relative basis-full'>
-                    <legend className='font-bold text-[16px] text-left'>
+                    <legend className='font-bold text-[16px] text-left section-heading'>
                       Optional filters
                       <span className='tooltip-icon' title='These filters will apply to your entire search, regardless of content type.'>ⓘ</span>
                     </legend>
                   </div>
                 </summary>
-                <div id='item-name-container' className='flex flex-wrap mb-6'>
-                  <label htmlFor='item-name' className='basis-full flex place-items-center mb-1.5'>
+                <div id='filter-item-name-container' className='flex flex-wrap mb-6 pl-12.5'>
+                  <label htmlFor='filter-item-name' className='basis-full flex place-items-center mb-1.5'>
                     <span className='font-semibold'>Item name</span>
                   </label>
-                  <input id='item-name' type='text' className='basis-full mb-1.5' />
+                  <input id='filter-item-name' type='text' className='basis-full mb-1.5' />
                 </div>
-                <div id='collection-container' className='flex flex-wrap mb-6'>
+                <div id='collection-container' className='flex flex-wrap mb-6 pl-12.5'>
                   <label htmlFor='collection' className='basis-full flex place-items-center mb-1.5'>
                     <span className='font-semibold'>Collection</span>
                     <span className='tooltip-icon-small' title="This requires the collection's codename. It can be found under 'Environment settings' -> 'Collections', and then by clicking on the {#} button from the right side of the collection's name.">ⓘ</span>
                   </label>
                   <input id='collection' type='text' className='basis-full mb-1.5' placeholder="Collection codename" />
                 </div>
-                <div id='last-modified-container' className='flex flex-wrap mb-6'>
+                <div id='last-modified-container' className='flex flex-wrap mb-6 pl-12.5'>
                   <label htmlFor='last-modified' className='basis-full flex place-items-center mb-1.5'>
                     <span className='font-semibold'>Last modified date</span>
                   </label>
@@ -933,7 +1027,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                     <input id='last-modified-range' type='date' className='basis-full mb-3' />
                   </div>
                 </div>
-                <div className='flex flex-wrap mb-6'>
+                <div className='flex flex-wrap mb-6 pl-12.5'>
                   <fieldset className='basis-full flex flex-wrap place-items-center'>
                     <legend className='inline-block text-left text-[14px]'>
                       <span className='font-semibold'>Content type's elements</span>
@@ -955,7 +1049,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                               Object.values(type.elements).map((element, index, arr) =>
                                 element.type !== 'custom' && element.type !== 'asset' ? 
                                   <div className={`basis-full relative flex flex-wrap pl-6 ${ index !== arr.length - 1 ? 'mb-5' : ''} type-filters-container`} key={`${element.codename}-container`}>
-                                    <label id={element.codename} htmlFor={`${element.codename}-input`} className='basis-full flex place-items-center mb-1.5'>
+                                    <label id={element.codename} htmlFor={`${type.system.codename}-${element.codename}-input`} className='basis-full flex place-items-center mb-1.5'>
                                       {element.name} 
                                       <span className='ml-1.5 text-gray-600'>
                                         ({element.type !== 'modular_content' ? element.type.replace('_', ' ') : 'linked items'})
@@ -967,7 +1061,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                                         : null
                                       }
                                     </label>
-                                    <select id={`${element.codename}-filter`} className='type-filter-operator' onChange={(e) => handleAddBtnDisplay(e.target, element.type)}>
+                                    <select id={`${type.system.codename}-${element.codename}-filter`} className='type-filter-operator' onChange={(e) => handleAddBtnDisplay(e.target, element.type, `${type.system.codename}-${element.codename}`)}>
                                       { Object.entries(filteringOperators[element.type as keyof typeof filteringOperators]).map((filter) =>
                                           <option value={filter[0]} key={filter[0]}>
                                             {filter[0]}
@@ -993,11 +1087,11 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                                     </div>
                                     {
                                       element.type !== 'date_time' && element.type !== 'number' ?
-                                        <input id={`${element.codename}-input`} type='text' className='basis-full type-filters mb-1.5' onKeyDownCapture={(e) => { e.key === 'Enter' ? handleEnterPress(e) : null }} />
+                                        <input id={`${type.system.codename}-${element.codename}-input`} type='text' className='basis-full type-filters mb-1.5' onKeyDownCapture={(e) => { e.key === 'Enter' ? handleEnterPress(e) : null }} />
                                       :
                                       <div className='basis-full flex flex-wrap num-filter-container'>
-                                        <input id={`${element.codename}-input`} ref={createRef} type={element.type === 'date_time' ? 'date' : 'number'} className={`basis-full type-filters mb-1.5`} onKeyDownCapture={(e) => { e.key === 'Enter' ? handleEnterPress(e) : null }} />
-                                        <div id={`${element.codename}-range-container`} className='basis-full hidden flex-wrap'>
+                                        <input id={`${type.system.codename}-${element.codename}-input`} ref={createRef} type={element.type === 'date_time' ? 'date' : 'number'} className={`basis-full type-filters mb-1.5`} onKeyDownCapture={(e) => { e.key === 'Enter' ? handleEnterPress(e) : null }} />
+                                        <div id={`${type.system.codename}-${element.codename}-range-container`} className='basis-full hidden flex-wrap'>
                                           <p className='basis-full text-left mb-1.5 py-[0.25rem] px-[0.5rem] text-[14px]'>and</p>
                                           <input id={`${element.codename}-range`}  type={element.type === 'date_time' ? 'date' : 'number'} className='basis-full type-filters mb-3' />
                                         </div>
@@ -1006,7 +1100,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                                     {
                                       element.type === 'modular_content' || element.type === 'multiple_choice' || element.type === 'subpages' || element.type === 'taxonomy'
                                       ?
-                                        <button id={`${element.codename}-add-btn`} type='button' className='hidden btn continue-btn place-self-end mt-3 mb-3' onClick={(e) => handleAddValues(e.target as HTMLButtonElement)}>
+                                        <button id={`${type.system.codename}-${element.codename}-add-btn`} type='button' className='hidden btn continue-btn place-self-end mt-3 mb-3' onClick={(e) => handleAddValues(e.target as HTMLButtonElement)}>
                                           Add value
                                         </button>
                                       : null
@@ -1024,7 +1118,101 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                 </div>
               </details>
             </fieldset>
-            <fieldset className='basis-full flex flex-wrap border-none'>
+            {/* Additional data options */}
+            <fieldset className='basis-full flex flex-wrap mb-6'>
+              <details id='additional-data-options-container' className='basis-full'>
+                <summary>
+                  <div className='relative basis-full'>
+                    <legend className='font-bold text-[16px] text-left section-heading'>
+                      Item details
+                      <span className='tooltip-icon' title="The base content export only includes each item's content, but the following options can be selected to include various item metadata with each exported item.">ⓘ</span>
+                    </legend>
+                  </div>
+                </summary>
+                <div className='basis-full flex mb-3 pl-10'>
+                  <label htmlFor='select-all-data' className='input-container flex place-items-center'>
+                    <input type='checkbox' className='mr-[8px] accent-(--purple)' id='select-all-data' value='select-all-data'/>
+                    Select all
+                  </label>
+                </div>
+                <div className='flex flex-wrap basis-full pl-18'>
+                  <div id='item-id-container' className='flex flex-wrap basis-full'>
+                    <div className='flex flex-wrap basis-full mb-3'>
+                      <label htmlFor='item-id' className='input-container flex place-items-center mb-1.5'>
+                        <input type='checkbox' className='additional-data-options mr-[8px] accent-(--purple)' id='item-id' value='item-id'/>
+                        ID
+                      </label>
+                    </div>
+                  </div>
+                  <div id='item-name-container' className='flex flex-wrap basis-full'>
+                    <div className='flex flex-wrap basis-full mb-3'>
+                      <label htmlFor='item-name' className='input-container flex place-items-center mb-1.5'>
+                        <input type='checkbox' className='additional-data-options mr-[8px] accent-(--purple)' id='item-name' value='item-name'/>
+                        Name
+                      </label>
+                    </div>
+                  </div>
+                  <div id='item-codename-container' className='flex flex-wrap basis-full'>
+                    <div className='flex flex-wrap basis-full mb-3'>
+                      <label htmlFor='item-codename' className='input-container flex place-items-center mb-1.5'>
+                        <input type='checkbox' className='additional-data-options mr-[8px] accent-(--purple)' id='item-codename' value='item-codename'/>
+                        Codename
+                      </label>
+                    </div>
+                  </div>
+                  <div id='item-collection-container' className='flex flex-wrap basis-full'>
+                    <div className='flex flex-wrap basis-full mb-3'>
+                      <label htmlFor='item-collection' className='input-container flex place-items-center mb-1.5'>
+                        <input type='checkbox' className='additional-data-options mr-[8px] accent-(--purple)' id='item-collection' value='item-collection'/>
+                        Collection
+                      </label>
+                    </div>
+                  </div>
+                  <div id='item-language-container' className='flex flex-wrap basis-full'>
+                    <div className='flex flex-wrap basis-full mb-3'>
+                      <label htmlFor='item-language' className='input-container flex place-items-center mb-1.5'>
+                        <input type='checkbox' className='additional-data-options mr-[8px] accent-(--purple)' id='item-language' value='item-language'/>
+                        Language
+                      </label>
+                    </div>
+                  </div>
+                  <div id='item-type-container' className='flex flex-wrap basis-full'>
+                    <div className='flex flex-wrap basis-full mb-3'>
+                      <label htmlFor='item-type' className='input-container flex place-items-center mb-1.5'>
+                        <input type='checkbox' className='additional-data-options mr-[8px] accent-(--purple)' id='item-type' value='item-type'/>
+                        Content type
+                      </label>
+                    </div>
+                  </div>
+                  <div id='item-last-modified-container' className='flex flex-wrap basis-full'>
+                    <div className='flex flex-wrap basis-full mb-3'>
+                      <label htmlFor='item-lastModified' className='input-container flex place-items-center mb-1.5'>
+                        <input type='checkbox' className='additional-data-options mr-[8px] accent-(--purple)' id='item-lastModified' value='item-lastModified'/>
+                        Last modified date
+                      </label>
+                    </div>
+                  </div>
+                  <div id='item-workflow-container' className='flex flex-wrap basis-full'>
+                    <div className='flex flex-wrap basis-full mb-3'>
+                      <label htmlFor='item-workflow' className='input-container flex place-items-center mb-1.5'>
+                        <input type='checkbox' className='additional-data-options mr-[8px] accent-(--purple)' id='item-workflow' value='item-workflow'/>
+                        Workflow
+                      </label>
+                    </div>
+                  </div>
+                  <div id='item-workflow-step-container' className='flex flex-wrap basis-full'>
+                    <div className='flex flex-wrap basis-full mb-6'>
+                      <label htmlFor='item-workflowStep' className='input-container flex place-items-center mb-1.5'>
+                        <input type='checkbox' className='additional-data-options mr-[8px] accent-(--purple)' id='item-workflowStep' value='item-workflowStep'/>
+                        Workflow step
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </fieldset>
+            {/* File type */}
+            <fieldset className='basis-full flex flex-wrap border-none mb-6'>
               <div className='basis-full flex mb-3 relative'>
                 <legend className='font-bold text-[16px]'>
                   File type
@@ -1034,13 +1222,13 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                   Please select a file type.
                 </p>
               </div>
-              <div className='basis-full flex mb-3'>
+              <div className='flex mb-3 basis-full'>
                 <label htmlFor='excel-radio-btn' className='input-container flex place-items-center'>
                   <input type='radio' id='excel-radio-btn' className='mr-[8px] accent-(--purple)' name='file-type' value={'excel'} />
                   Excel
                 </label>
               </div>
-              <div className='basis-full flex mb-6'>
+              <div className='flex mb-3 basis-full'>
                 <label htmlFor='csv-radio-btn' className='input-container flex place-items-center'>
                   <input type='radio' id='csv-radio-btn' className='mr-[8px] accent-(--purple)' name='file-type' value={'csv'} />
                   CSV
@@ -1065,17 +1253,20 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                     Environment ID
                   <span className='tooltip-icon' title="The environment ID of the environment you would like to export content from. This can be found under 'Environment settings', or as the value in the URL as shown: app.kontent.ai/<environment-id>.">ⓘ</span>
                   </label>
-                  <input type='text' id='environment-id' name='environment-id' required={true}/>
+                  <input type='text' id='environment-id' name='environment-id' />
+                  <p id='environment-id-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg top-0 left-[160px]'>
+                  {environmentIdErrorText}
+                </p>
                 </div>
-                : null                
+                : null
               }
               <div className='basis-full relative flex flex-wrap'>
                 <label id='api-key-label' htmlFor='api-key' className='basis-full text-left mb-3 font-bold focus:border-color-(--orange)'>
                   Delivery Preview API key
                   <span className='tooltip-icon' title='Your key must have Content Preview enabled. If your environment has Secure Access enabled, then your key must have Secure Access enabled as well.'>ⓘ</span>
                 </label>
-                <input type='text' id='api-key' name='api-key' required={true}/>
-                <p id='api-key-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg top-[5.5rem]'>
+                <input type='text' id='api-key' name='api-key' />
+                <p id='api-key-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg top-0 left-[230px]'>
                   {apiKeyErrorText}
                 </p>
               </div>
