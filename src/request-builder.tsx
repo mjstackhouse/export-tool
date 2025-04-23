@@ -122,7 +122,13 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
         let filteringOperatorKeys, elementType;
 
         if (elementsToFilterLabels.length > 0) {
-          elementType = elementsToFilterLabels[index].textContent?.match(/\(([A-Za-z\s*A-Za-z^)]+)\)/);
+          let elementsToFilterLabelText = elementsToFilterLabels[index].textContent;
+
+          if (elementsToFilterLabelText) {
+            if (elementsToFilterLabelText[elementsToFilterLabelText.length - 1] === 'ⓘ') elementsToFilterLabelText = elementsToFilterLabelText.slice(0, elementsToFilterLabelText.length - 1);
+          
+            elementType = elementsToFilterLabelText.match(/\(([A-Za-z\s*A-Za-z^)]+)\)$/);
+          }
 
           if (elementType) {
             if (elementType[1] === 'linked items') elementType[1] = 'modular_content';
