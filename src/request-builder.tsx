@@ -110,7 +110,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
       const selectedFileTypeInput = document.querySelector('input[name="file-type"]:checked') as HTMLInputElement;
       
       const itemName = (document.getElementById('filter-item-name') as HTMLInputElement).value.trim();
-      const collection = (document.getElementById('collection') as HTMLInputElement).value.trim();
+      const collection = (document.getElementById('collection-filter') as HTMLInputElement).value.trim();
 
       let elementsToFilter: (string | string[])[][] | undefined = [];
 
@@ -1008,11 +1008,11 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                   <input id='filter-item-name' type='text' className='basis-full mb-1.5' />
                 </div>
                 <div id='collection-container' className='flex flex-wrap mb-6 pl-12.5'>
-                  <label htmlFor='collection' className='basis-full flex place-items-center mb-1.5'>
+                  <label htmlFor='collection-filter' className='basis-full flex place-items-center mb-1.5'>
                     <span className='font-semibold'>Collection</span>
                     <span className='tooltip-icon-small' title="This requires the collection's codename. It can be found under 'Environment settings' -> 'Collections', and then by clicking on the {#} button from the right side of the collection's name.">ⓘ</span>
                   </label>
-                  <input id='collection' type='text' className='basis-full mb-1.5' placeholder="Collection codename" />
+                  <input id='collection-filter' name='' type='text' className='basis-full mb-1.5' placeholder="Collection codename" />
                 </div>
                 <div id='last-modified-container' className='flex flex-wrap mb-6 pl-12.5'>
                   <label htmlFor='last-modified' className='basis-full flex place-items-center mb-1.5'>
