@@ -1012,7 +1012,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                     <span className='font-semibold'>Collection</span>
                     <span className='tooltip-icon-small' title="This requires the collection's codename. It can be found under 'Environment settings' -> 'Collections', and then by clicking on the {#} button from the right side of the collection's name.">ⓘ</span>
                   </label>
-                  <input id='collection-filter' name='' type='text' className='basis-full mb-1.5' placeholder="Collection codename" />
+                  <input id='collection-filter' type='text' className='basis-full mb-1.5' placeholder="Collection codename" />
                 </div>
                 <div id='last-modified-container' className='flex flex-wrap mb-6 pl-12.5'>
                   <label htmlFor='last-modified' className='basis-full flex place-items-center mb-1.5'>
