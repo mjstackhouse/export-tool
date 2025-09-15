@@ -1102,28 +1102,9 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                                               <button 
                                                 type='button'
                                                 className='delete-btn' 
-                                                title='Remove value' 
-                                                onClick={(e) => handleDeleteValues(e.target as HTMLButtonElement)}
-                                                style={{
-                                                  position: 'absolute',
-                                                  right: 8,
-                                                  top: 0,
-                                                  bottom: 0,
-                                                  margin: 'auto 0',
-                                                  height: '29px', // 21px height + 3px top + 3px bottom padding
-                                                  width: '32px',
-                                                  display: 'flex',
-                                                  alignItems: 'center',
-                                                  justifyContent: 'center',
-                                                  background: 'none',
-                                                  border: 'none',
-                                                  color: 'var(--color-gray-400)',
-                                                  fontSize: 20,
-                                                  cursor: 'pointer',
-                                                  lineHeight: 1,
-                                                  padding: 0,
-                                                }}
-                                                >
+                                                title='Remove value'
+                                                onClick={(e) => handleDeleteValues(e.currentTarget as HTMLButtonElement)}
+                                              >
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="size-7">
                                                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                                                 </svg>
