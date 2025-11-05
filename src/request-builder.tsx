@@ -55,6 +55,16 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
   const [validConfigAPIKey, setValidConfigAPIKey] = useState<boolean>(false);
   const [elementFilterInputValues, setElementFilterInputValues] = useState<ObjectWithArrays>({});
   const [oneContentTypeSelected, setOneContentTypeSelected] = useState<OneContentTypeSelectedInfo>({ boolean: false, initialLoad: true });
+  const [multipleLanguagesSelected, setMultipleLanguagesSelected] = useState<boolean>(false);
+  const [showMultiLangAnnouncement, setShowMultiLangAnnouncement] = useState<boolean>(() => {
+    // Check localStorage to see if user has dismissed the announcement
+    // For testing: set to true to always show the announcement
+    const FORCE_SHOW = false; // Set to true for testing
+    if (FORCE_SHOW) return true;
+    
+    const dismissed = localStorage.getItem('multi-lang-announcement-dismissed');
+    return dismissed !== 'true';
+  });
 
   async function handleSubmit(event: FormEvent, type: string) {
     event.preventDefault();
@@ -86,7 +96,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
         }
         else {
           if (environmentIdInput.value === '') {
-            if (environmentIdError) environmentIdError.style.display = 'block';
+            if (environmentIdError) environmentIdError.style.display = 'inline-flex';
             setEnvironmentIdErrorText('Please provide an environment ID.');
           }
           else {
@@ -94,7 +104,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
           } 
           
           if (keyInput.value === '') {
-            if (apiKeyError) apiKeyError.style.display = 'block';
+            if (apiKeyError) apiKeyError.style.display = 'inline-flex';
             setAPIKeyErrorText('Please provide an API key.');
           }
           else {
@@ -111,7 +121,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
         }
         else {
           if (keyInput.value === '') {
-            if (apiKeyError) apiKeyError.style.display = 'block';
+            if (apiKeyError) apiKeyError.style.display = 'inline-flex';
             setAPIKeyErrorText('Please provide an API key.');
           }
           else {
@@ -122,7 +132,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     }
     else {
       const selectedTypes = document.querySelectorAll('input[type="checkbox"].content-type:checked');
-      const selectedLanguage = document.querySelector('input[name="language"]:checked') as HTMLInputElement;
+      const selectedLanguages = document.querySelectorAll('input[type="checkbox"].language-option:checked') as NodeListOf<HTMLInputElement>;
       const selectedWorkflowStep = document.querySelector('input[name="content-workflow-step"]:checked') as HTMLInputElement;
       const selectedFileTypeInput = document.querySelector('input[name="file-type"]:checked') as HTMLInputElement;
       
@@ -218,11 +228,11 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
       }
 
       // Checking for missing values and displaying or hiding errors
-      if (selectedTypes.length === 0 || !selectedLanguage || !selectedWorkflowStep || !selectedFileTypeInput) {
+      if (selectedTypes.length === 0 || selectedLanguages.length === 0 || !selectedWorkflowStep || !selectedFileTypeInput) {
         const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
         if (!selectedFileTypeInput) {
-          if (fileTypeError) fileTypeError.style.display = 'block';
+          if (fileTypeError) fileTypeError.style.display = 'inline-flex';
           fileTypeError.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
         }
         else {
@@ -230,15 +240,15 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
         }
 
         if (!selectedWorkflowStep) {
-          if (workflowStepError) workflowStepError.style.display = 'block';
+          if (workflowStepError) workflowStepError.style.display = 'inline-flex';
           workflowStepError.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
         }
         else {
           if (workflowStepError) workflowStepError.style.display = 'none';
         }
 
-        if (!selectedLanguage) {
-          if (languageError) languageError.style.display = 'block';
+        if (selectedLanguages.length === 0) {
+          if (languageError) languageError.style.display = 'inline-flex';
           languageError.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
         }
         else {
@@ -246,7 +256,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
         }
 
         if (selectedTypes.length === 0) {
-          if (contentTypeError) contentTypeError.style.display = 'block';
+          if (contentTypeError) contentTypeError.style.display = 'inline-flex';
           contentTypeError.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
         }
         else {
@@ -280,10 +290,57 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
   
         if (selectedFileTypeInput) selectedFileType = selectedFileTypeInput.value;
   
-        fetchItems(environmentId, apiKey, types, selectedLanguage.value, selectedWorkflowStep.value, { value: lastModified, filter: selectedLastModifiedOperator.value }, itemName, collection, elementsToFilter).then(async (data) => {
+        // Hide all per-language errors before running
+        const allLanguageErrors = document.querySelectorAll('[id$="-lang-error"]') as NodeListOf<HTMLElement>;
+        allLanguageErrors.forEach(el => { el.style.display = 'none'; });
+
+        // Hide all per-language warnings before running
+        const allLanguageWarnings = document.querySelectorAll('[id$="-no-content-all-skipped"], [id$="-some-no-content-skipped"]') as NodeListOf<HTMLElement>;
+        allLanguageWarnings.forEach(el => { el.style.display = 'none'; });
+
+        // ZIP container (CSV always uses ZIP; Excel will be decided after processing)
+        const isCSV = selectedFileTypeInput && selectedFileTypeInput.value === 'csv';
+        const zip = isCSV ? new JSZip() : null;
+
+        // Generate timestamp for file names (format: YYYY-MM-DD)
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const timestamp = `${year}-${month}-${day}`;
+
+        // Track skipped items (no content) across all languages
+        let totalFoundAcrossLangs = 0;
+        let totalExportedAcrossLangs = 0;
+        
+        // Track which languages had items successfully exported
+        const languagesWithItems = new Set<string>();
+        // Track which languages had items found (even if not exported)
+        const languagesWithItemsFound = new Set<string>();
+        // Track per-language counts for warnings
+        const languageStats = new Map<string, { found: number; exported: number }>();
+        // Collect Excel workbooks per language to decide later whether to zip or download directly
+        const excelLangWorkbooks: Array<{ langNameForFile: string; workbook: XLSX.WorkBook }> = [];
+
+        for (const langInput of Array.from(selectedLanguages)) {
+          const langCode = langInput.value;
+          
+          // Find the language object to get the name for filesystem-friendly naming
+          const langObj = languages?.find(lang => lang.system.codename === langCode);
+          // Sanitize language name for filesystem: replace spaces/special chars with hyphens, remove leading/trailing hyphens
+          const langNameForFile = langObj?.system.name
+            .replace(/[^\w\s-]/g, '') // Remove special characters except hyphens and underscores
+            .replace(/\s+/g, '-') // Replace spaces with hyphens
+            .replace(/--+/g, '-') // Replace multiple hyphens with single hyphen
+            .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
+            || langCode; // Fallback to codename if name not found
+
+          const data = await fetchItems(environmentId, apiKey, types, langCode, selectedWorkflowStep.value, { value: lastModified, filter: selectedLastModifiedOperator.value }, itemName, collection, elementsToFilter);
+
           if (data.items.length > 0) {
-            const noItemsError = document.getElementById('no-items-error') as HTMLElement;
-            if (noItemsError) noItemsError.style.display = 'none';
+            // Track items found and exported for this specific language
+            const langItemsFound = data.items.length;
+            let langItemsExported = 0;
 
             const selectedAdditionalDataInputs = document.querySelectorAll('.additional-data-options:checked');
             let selectedAdditionalData: Array<string> = [];
@@ -300,130 +357,276 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
             const items = data.items.map((item) => Object.entries(item.elements).map(obj => ({ [obj[1].name]: obj[1].value })));
     
             let currentType = data.items[0].system.type;
+            // New workbook per language
+            const langWorkbook = XLSX.utils.book_new();
             let currentWorksheet;
             let currentItems = [];
+            totalFoundAcrossLangs += data.items.length;
     
             for (let i = 0; i < data.items.length; i++) {
+              // Determine if item has any content in elements
+              const hasContent = Object.values(data.items[i].elements).some((el: any) => {
+                if (Array.isArray(el.value)) return el.value.length > 0;
+                return (el.value ?? '') !== '';
+              });
+              
               // Standard item processing
               if (data.items[i].system.type === currentType && i !== data.items.length - 1) {
-                if (selectedAdditionalData) {
-                  const currentItemSystemData = selectedAdditionalData.map((systemKey) => itemsSystemData[i][systemKey as keyof SystemObj]);
-                  currentItems.push(currentItemSystemData.concat(itemsValues[i]));
-                } 
-                else currentItems.push(itemsValues[i]);
+                if (selectedAdditionalData.length > 0 || hasContent) {
+                  if (selectedAdditionalData.length > 0) {
+                    const currentItemSystemData = selectedAdditionalData.map((systemKey) => itemsSystemData[i][systemKey as keyof SystemObj]);
+                    currentItems.push(currentItemSystemData.concat(itemsValues[i]));
+                  } 
+                  else currentItems.push(itemsValues[i]);
+                  totalExportedAcrossLangs += 1;
+                  langItemsExported += 1;
+                }
               }
               // The final item is not the only of its type
               else if (data.items[i].system.type === currentType && i === data.items.length - 1) {
-                if (selectedAdditionalData) {
-                  const currentItemSystemData = selectedAdditionalData.map((systemKey) => itemsSystemData[i][systemKey as keyof SystemObj]);
-                  currentItems.push(currentItemSystemData.concat(itemsValues[i]));
+                if (selectedAdditionalData.length > 0 || hasContent) {
+                  if (selectedAdditionalData.length > 0) {
+                    const currentItemSystemData = selectedAdditionalData.map((systemKey) => itemsSystemData[i][systemKey as keyof SystemObj]);
+                    currentItems.push(currentItemSystemData.concat(itemsValues[i]));
+                  }
+                  else currentItems.push(itemsValues[i]);
+                  totalExportedAcrossLangs += 1;
+                  langItemsExported += 1;
                 }
-                else currentItems.push(itemsValues[i]);
 
-                let currentKeys;
+                // Only create worksheet if there are items to export
+                if (currentItems.length > 0) {
+                  let currentKeys;
 
-                if (selectedAdditionalData) currentKeys = [...selectedAdditionalData];
-    
-                // Some of the below logic comes from: https://stackoverflow.com/a/64213063
-                if (items.length > 1 && selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
-                else if (items.length > 1) currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
-                else currentKeys = [items[i].map(obj => Object.entries(obj)[0][0])];
+                  if (selectedAdditionalData) currentKeys = [...selectedAdditionalData];
+      
+                  // Some of the below logic comes from: https://stackoverflow.com/a/64213063
+                  if (items.length > 1 && selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
+                  else if (items.length > 1) currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
+                  else currentKeys = [items[i].map(obj => Object.entries(obj)[0][0])];
 
-                currentWorksheet = XLSX.utils.book_new();
+                  currentWorksheet = XLSX.utils.book_new();
 
-                XLSX.utils.sheet_add_aoa(currentWorksheet, currentKeys);
-                XLSX.utils.sheet_add_json(currentWorksheet, currentItems, { origin: 'A2', skipHeader: true });
-    
-                if (currentWorksheet) XLSX.utils.book_append_sheet(workbook, currentWorksheet, currentType);
+                  XLSX.utils.sheet_add_aoa(currentWorksheet, currentKeys);
+                  XLSX.utils.sheet_add_json(currentWorksheet, currentItems, { origin: 'A2', skipHeader: true });
+      
+                  if (currentWorksheet) XLSX.utils.book_append_sheet(langWorkbook, currentWorksheet, currentType);
+                }
               }
               // The final item is the only of its type
               else if (data.items[i].system.type !== currentType && i === data.items.length - 1) {
-                let currentKeys;
+                // Only create worksheet for previous type if there are items to export
+                if (currentItems.length > 0) {
+                  let currentKeys;
 
-                if (selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
-                else currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
+                  if (selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
+                  else currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
 
-                currentWorksheet = XLSX.utils.book_new();
-    
-                XLSX.utils.sheet_add_aoa(currentWorksheet, currentKeys);
-                XLSX.utils.sheet_add_json(currentWorksheet, currentItems, { origin: 'A2', skipHeader: true });
-    
-                if (currentWorksheet) XLSX.utils.book_append_sheet(workbook, currentWorksheet, currentType);
+                  currentWorksheet = XLSX.utils.book_new();
+      
+                  XLSX.utils.sheet_add_aoa(currentWorksheet, currentKeys);
+                  XLSX.utils.sheet_add_json(currentWorksheet, currentItems, { origin: 'A2', skipHeader: true });
+      
+                  if (currentWorksheet) XLSX.utils.book_append_sheet(langWorkbook, currentWorksheet, currentType);
+                }
 
                 // Now handling the final item/type
                 currentItems = [];
 
-                if (selectedAdditionalData) {
-                  const currentItemSystemData = selectedAdditionalData.map((systemKey) => itemsSystemData[i][systemKey as keyof SystemObj]);
-                  currentItems.push(currentItemSystemData.concat(itemsValues[i]));
-                } 
-                else currentItems.push(itemsValues[i]);
+                if (selectedAdditionalData.length > 0 || hasContent) {
+                  if (selectedAdditionalData.length > 0) {
+                    const currentItemSystemData = selectedAdditionalData.map((systemKey) => itemsSystemData[i][systemKey as keyof SystemObj]);
+                    currentItems.push(currentItemSystemData.concat(itemsValues[i]));
+                  } 
+                  else currentItems.push(itemsValues[i]);
+                  totalExportedAcrossLangs += 1;
+                  langItemsExported += 1;
+                }
     
-                if (selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i].map(obj => Object.entries(obj)[0][0]))];
-                else currentKeys = [items[i].map(obj => Object.entries(obj)[0][0])];
+                // Only create worksheet if there are items to export
+                if (currentItems.length > 0) {
+                  let currentKeys;
+                  if (selectedAdditionalData.length > 0) currentKeys = [selectedAdditionalData.concat(items[i].map(obj => Object.entries(obj)[0][0]))];
+                  else currentKeys = [items[i].map(obj => Object.entries(obj)[0][0])];
 
-                currentWorksheet = XLSX.utils.book_new();
-    
-                XLSX.utils.sheet_add_aoa(currentWorksheet, currentKeys);
-                XLSX.utils.sheet_add_json(currentWorksheet, currentItems, { origin: 'A2', skipHeader: true });
-    
-                if (currentWorksheet) XLSX.utils.book_append_sheet(workbook, currentWorksheet, data.items[i].system.type);
+                  currentWorksheet = XLSX.utils.book_new();
+      
+                  XLSX.utils.sheet_add_aoa(currentWorksheet, currentKeys);
+                  XLSX.utils.sheet_add_json(currentWorksheet, currentItems, { origin: 'A2', skipHeader: true });
+      
+                  if (currentWorksheet) XLSX.utils.book_append_sheet(langWorkbook, currentWorksheet, data.items[i].system.type);
+                }
               }
               // The item is the last of its type, but isn't the only one, and isn't the final item
               else {
-                let currentKeys = [];
+                // Only create worksheet if there are items to export
+                if (currentItems.length > 0) {
+                  let currentKeys = [];
 
-                if (selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
-                else currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
+                  if (selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
+                  else currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
 
-                currentWorksheet = XLSX.utils.book_new();
-    
-                XLSX.utils.sheet_add_aoa(currentWorksheet, currentKeys);
-                XLSX.utils.sheet_add_json(currentWorksheet, currentItems, { origin: 'A2', skipHeader: true });
-    
-                if (currentWorksheet) XLSX.utils.book_append_sheet(workbook, currentWorksheet, currentType);
+                  currentWorksheet = XLSX.utils.book_new();
+      
+                  XLSX.utils.sheet_add_aoa(currentWorksheet, currentKeys);
+                  XLSX.utils.sheet_add_json(currentWorksheet, currentItems, { origin: 'A2', skipHeader: true });
+      
+                  if (currentWorksheet) XLSX.utils.book_append_sheet(langWorkbook, currentWorksheet, currentType);
+                }
     
                 currentItems = [];
                 currentType = data.items[i].system.type;
 
-                if (selectedAdditionalData) {
-                  const currentItemSystemData = selectedAdditionalData.map((systemKey) => itemsSystemData[i][systemKey as keyof SystemObj]);
-                  currentItems.push(currentItemSystemData.concat(itemsValues[i]));
-                } 
-                else currentItems.push(itemsValues[i]);
+                if (selectedAdditionalData.length > 0 || hasContent) {
+                  if (selectedAdditionalData.length > 0) {
+                    const currentItemSystemData = selectedAdditionalData.map((systemKey) => itemsSystemData[i][systemKey as keyof SystemObj]);
+                    currentItems.push(currentItemSystemData.concat(itemsValues[i]));
+                  } 
+                  else currentItems.push(itemsValues[i]);
+                  totalExportedAcrossLangs += 1;
+                  langItemsExported += 1;
+                }
               }
             }
 
-            if (selectedFileType === 'excel') {
-              XLSX.writeFile(workbook, `${environmentId}-export.xlsx`);
-            }
-            else {
-              const zip = new JSZip();
-    
-              for (const sheetName of workbook.SheetNames) {
-                const worksheet = workbook.Sheets[sheetName];
-                const csv = XLSX.utils.sheet_to_csv(worksheet);
-            
-                zip.file(`${sheetName}.csv`, csv);
+            // Only export workbook if it has sheets (items were actually exported)
+            if (langWorkbook.SheetNames.length > 0) {
+              if (selectedFileType === 'excel') {
+                // Defer Excel export decision until after all languages are processed
+                excelLangWorkbooks.push({ langNameForFile, workbook: langWorkbook });
               }
+              else if (zip) {
+                // CSV handling - add sheets to ZIP
+                for (const sheetName of langWorkbook.SheetNames) {
+                  const worksheet = langWorkbook.Sheets[sheetName];
+                  const csv = XLSX.utils.sheet_to_csv(worksheet);
+                  zip.file(`${environmentId}-export-${timestamp}/${langNameForFile}/${sheetName}.csv`, csv);
+                }
+              }
+            }
             
-              const zipBlob = await zip.generateAsync({ type: 'blob' });
-    
-              const downloadLink = document.createElement('a');
-              downloadLink.href = URL.createObjectURL(zipBlob);
-              downloadLink.download = `${environmentId}-export.zip`;
-              downloadLink.click();
+            // Mark this language as having items found
+            languagesWithItemsFound.add(langCode);
+            
+            // Mark this language as having exported items if any were exported
+            if (langItemsExported > 0) {
+              languagesWithItems.add(langCode);
+            }
+            // Store language stats for warning display
+            languageStats.set(langCode, { found: langItemsFound, exported: langItemsExported });
+          }
+          // If no items found for this language, we defer error display until after all languages are processed
+          // (see error handling logic below after the loop completes)
+        }
+
+        // Determine which error message(s) to show based on final export count
+        const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+        let firstErrorElement: HTMLElement | null = null;
+        
+        if (totalExportedAcrossLangs === 0) {
+          // No items exported at all - show general error, hide all per-language errors
+          const noItemsError = document.getElementById('no-items-error') as HTMLElement;
+          if (noItemsError) {
+            noItemsError.style.display = 'inline-flex';
+            (noItemsError as HTMLElement).style.alignItems = 'stretch';
+            noItemsError.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
+          }
+          
+          // Hide all per-language errors since we're showing the general one
+          const allLanguageErrors = document.querySelectorAll('[id$="-lang-error"]') as NodeListOf<HTMLElement>;
+          allLanguageErrors.forEach(el => { el.style.display = 'none'; });
+        }
+        else {
+          // Some items were exported - show per-language errors for languages that had no items
+          // Hide the general error since we have specific language errors
+          const noItemsError = document.getElementById('no-items-error') as HTMLElement;
+          if (noItemsError) noItemsError.style.display = 'none';
+          
+          // Show per-language errors for languages that had no items found at all
+          for (const langInput of Array.from(selectedLanguages)) {
+            const langCode = langInput.value;
+            // Only show "No items found" if items were never found (not just if none were exported)
+            if (!languagesWithItemsFound.has(langCode)) {
+              const perLangError = document.getElementById(`${langCode}-lang-error`) as HTMLElement;
+              if (perLangError) {
+                perLangError.style.display = 'inline-flex';
+                perLangError.style.alignItems = 'stretch';
+                if (!firstErrorElement) firstErrorElement = perLangError;
+              }
             }
           }
-          else {
-            const noItemsError = document.getElementById('no-items-error') as HTMLElement;
-            if (noItemsError) noItemsError.style.display = 'block';
+          
+          // Scroll to first error if found
+          if (firstErrorElement) {
+            firstErrorElement.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
           }
+        }
+        
+        // Show per-language no-content warnings
+        let firstWarningElement: HTMLElement | null = null;
+        for (const langInput of Array.from(selectedLanguages)) {
+          const langCode = langInput.value;
+          const stats = languageStats.get(langCode);
+          
+          if (stats) {
+            if (stats.found > 0 && stats.exported === 0) {
+              // All items found but none exported (all had no content)
+              const allSkippedWarning = document.getElementById(`${langCode}-no-content-all-skipped`) as HTMLElement;
+              if (allSkippedWarning) {
+                allSkippedWarning.style.display = 'inline-flex';
+                allSkippedWarning.style.alignItems = 'stretch';
+                if (!firstWarningElement) firstWarningElement = allSkippedWarning;
+              }
+            }
+            else if (stats.found > stats.exported) {
+              // Some items exported but some were skipped (had no content)
+              const someSkippedWarning = document.getElementById(`${langCode}-some-no-content-skipped`) as HTMLElement;
+              if (someSkippedWarning) {
+                someSkippedWarning.style.display = 'inline-flex';
+                someSkippedWarning.style.alignItems = 'stretch';
+                if (!firstWarningElement) firstWarningElement = someSkippedWarning;
+              }
+            }
+          }
+        }
+        
+        // Scroll to first warning if found and no error was scrolled to
+        if (firstWarningElement && totalExportedAcrossLangs > 0 && !firstErrorElement) {
+          firstWarningElement.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
+        }
 
-          setExportBtnText('Export content')
-          if (exportBtn) exportBtn.removeAttribute('disabled');
-          if (loadingExportSpinner) loadingExportSpinner.style.display = 'none';
-        })
+        // Finalize downloads
+        if (selectedFileType === 'excel') {
+          if (excelLangWorkbooks.length === 1) {
+            // Direct download for a single language with data
+            const only = excelLangWorkbooks[0];
+            XLSX.writeFile(only.workbook, `${environmentId}-${only.langNameForFile}-export-${timestamp}.xlsx`);
+          }
+          else if (excelLangWorkbooks.length > 1) {
+            // Multiple languages with data: zip the Excel files together
+            const excelZip = new JSZip();
+            for (const entry of excelLangWorkbooks) {
+              const buffer = XLSX.write(entry.workbook, { bookType: 'xlsx', type: 'array' });
+              excelZip.file(`${environmentId}-export-${timestamp}/${entry.langNameForFile}/${environmentId}-${entry.langNameForFile}-export-${timestamp}.xlsx`, buffer);
+            }
+            const zipBlob = await excelZip.generateAsync({ type: 'blob' });
+            const downloadLink = document.createElement('a');
+            downloadLink.href = URL.createObjectURL(zipBlob);
+            downloadLink.download = `${environmentId}-export-${timestamp}.zip`;
+            downloadLink.click();
+          }
+        } else if (zip) {
+          // CSV case
+          const zipBlob = await zip.generateAsync({ type: 'blob' });
+          const downloadLink = document.createElement('a');
+          downloadLink.href = URL.createObjectURL(zipBlob);
+          downloadLink.download = `${environmentId}-export-${timestamp}.zip`;
+          downloadLink.click();
+        }
+
+        setExportBtnText('Export content')
+        if (exportBtn) exportBtn.removeAttribute('disabled');
+        if (loadingExportSpinner) loadingExportSpinner.style.display = 'none';
       }
     }
   }
@@ -436,6 +639,12 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     setLanguages([]);
     setElementFilterInputValues({});
     setOneContentTypeSelected({boolean: false, initialLoad: true});
+    setMultipleLanguagesSelected(false);
+  }
+
+  function handleCloseMultiLangAnnouncement() {
+    setShowMultiLangAnnouncement(false);
+    localStorage.setItem('multi-lang-announcement-dismissed', 'true');
   }
 
   function handleRange(operatorType: string) {
@@ -491,10 +700,24 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     }
   }
 
+  function handleSelectAllLanguages(target: HTMLInputElement) {
+    const languageCheckboxes = document.querySelectorAll('input[type="checkbox"].language-option');
+    for (let i = 0; i < languageCheckboxes.length; i++) {
+      (languageCheckboxes[i] as HTMLInputElement).checked = target.checked;
+    }
+    const count = document.querySelectorAll('input[type="checkbox"].language-option:checked').length;
+    setMultipleLanguagesSelected(count > 1);
+  }
+
+  function handleLanguageCheckboxChange() {
+    const count = document.querySelectorAll('input[type="checkbox"].language-option:checked').length;
+    setMultipleLanguagesSelected(count > 1);
+  }
+
   function handleAddValues(addButton: HTMLButtonElement) {
     if (addButton) {
       const valueInput = addButton.parentElement?.querySelector('input');
-      const selectedTypes = document.querySelectorAll('input[type="checkbox"]:checked');
+      const selectedTypes = document.querySelectorAll('input[type="checkbox"].content-type:checked');
 
       if (valueInput && selectedTypes.length === 1) {
         const elementCodename = valueInput.id.match(/-([a-zA-Z_]+)-/);
@@ -656,6 +879,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
 
   function handleEnterPress(e: React.KeyboardEvent<HTMLElement>) {
     e.preventDefault();
+    console.log('enter pressed');
     const targetInput = e.currentTarget;
 
     if (targetInput) {
@@ -669,12 +893,16 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
       const apiKeyError = document.getElementById('api-key-error') as HTMLElement;
       const environmentIdError = document.getElementById('environment-id-error') as HTMLElement;
       const noItemsError = document.getElementById('no-items-error') as HTMLElement;
+      // const noContentAllSkipped = document.getElementById('no-content-all-skipped') as HTMLElement;
+      // const someNoContentSkipped = document.getElementById('some-no-content-skipped') as HTMLElement;
       const contentTypeError = document.getElementById('content-type-error') as HTMLElement;
       const languageError = document.getElementById('language-error') as HTMLElement;
       const workflowStepError = document.getElementById('workflow-step-error') as HTMLElement;
       const fileTypeError = document.getElementById('file-type-error') as HTMLElement;
       const loadingContainer = document.getElementById('loading-container') as HTMLElement;
       const loadingExportSpinner = document.getElementById('loading-export') as HTMLElement;
+      // const allLanguageErrors = document.querySelectorAll('[id$="-lang-error"]') as NodeListOf<HTMLElement>;
+      // allLanguageErrors.forEach(el => { el.style.display = 'none'; });
 
       if (loadingExportSpinner) loadingExportSpinner.style.display = 'none';    
       if (loadingContainer) loadingContainer.style.display = 'flex';
@@ -685,6 +913,11 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
       if (languageError) languageError.style.display = 'none';
       if (workflowStepError) workflowStepError.style.display = 'none';
       if (fileTypeError) fileTypeError.style.display = 'none';
+      // Hide all per-language errors and warnings
+      const allLanguageErrors = document.querySelectorAll('[id$="-lang-error"], [id$="-no-content-all-skipped"], [id$="-some-no-content-skipped"]') as NodeListOf<HTMLElement>;
+      allLanguageErrors.forEach(el => { el.style.display = 'none'; });
+      // Hide multi-language elements warning
+      setMultipleLanguagesSelected(false);
 
       if (contentTypes !== undefined && languages !== undefined) {
         if (loadingContainer) loadingContainer.style.display = 'none';
@@ -730,8 +963,8 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
               if (typeof response === 'string') {
                 if (loadingContainer) loadingContainer.style.display = 'none';
 
-                if (environmentIdError && response[0] === 'N') environmentIdError.style.display = 'block';
-                else if (apiKeyError) apiKeyError.style.display = 'block';
+                if (environmentIdError && response[0] === 'N') environmentIdError.style.display = 'inline-flex';
+                else if (apiKeyError) apiKeyError.style.display = 'inline-flex';
                 
                 if (contextResponse.config) {
                   if ((contextResponse.config as Config).deliveryKey) {
@@ -746,7 +979,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                 previewTest(environmentId, apiKey).then(async (response) => {
                   if (typeof response === 'string') {
                     if (loadingContainer) loadingContainer.style.display = 'none';
-                    if (apiKeyError) apiKeyError.style.display = 'block';
+                    if (apiKeyError) apiKeyError.style.display = 'inline-flex';
                     if (contextResponse.config) {
                       if ((contextResponse.config as Config).deliveryKey) {
                         setValidConfigAPIKey(false);
@@ -765,11 +998,11 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                     fetchTypes(environmentId, apiKey).then(async (response) => {
                       if (response === 'error') {
                         if (loadingContainer) loadingContainer.style.display = 'none';
-                        if (apiKeyError) apiKeyError.style.display = 'block';
+                        if (apiKeyError) apiKeyError.style.display = 'inline-flex';
                       }
                       else if (response.items.length === 0) {
                         if (loadingContainer) loadingContainer.style.display = 'none';
-                        if (apiKeyError) apiKeyError.style.display = 'block';
+                        if (apiKeyError) apiKeyError.style.display = 'inline-flex';
                         setAPIKeyErrorText('Please make sure your environment has content types to export.');
                       }
                       else {
@@ -783,7 +1016,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                         fetchLanguages(environmentId, apiKey).then(async (response) => {
                           if (response === 'error') {
                             if (loadingContainer) loadingContainer.style.display = 'none';
-                            if (apiKeyError) apiKeyError.style.display = 'block';
+                            if (apiKeyError) apiKeyError.style.display = 'inline-flex';
                           }
                           else {
                             setLanguages(response.items);
@@ -813,15 +1046,15 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
 
                 if (loadingContainer) loadingContainer.style.display = 'none';
 
-                if (environmentIdError && response[0] === 'N') environmentIdError.style.display = 'block';
-                else if (apiKeyError) apiKeyError.style.display = 'block';
+                if (environmentIdError && response[0] === 'N') environmentIdError.style.display = 'inline-flex';
+                else if (apiKeyError) apiKeyError.style.display = 'inline-flex';
               }
               else {
                 previewTest(environmentId, apiKey).then(async (response) => {
                   if (typeof response === 'string') {
                     setAPIKeyErrorText("Invalid key. Please make sure your key has 'Content preview' enabled.");
                     if (loadingContainer) loadingContainer.style.display = 'none';
-                    if (apiKeyError) apiKeyError.style.display = 'block';
+                    if (apiKeyError) apiKeyError.style.display = 'inline-flex';
                   }
                   else {
                     setLoadingText('Fetching content types...');
@@ -829,11 +1062,11 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                     fetchTypes(environmentId, apiKey).then(async (response) => {
                       if (response === 'error') {
                         if (loadingContainer) loadingContainer.style.display = 'none';
-                        if (apiKeyError) apiKeyError.style.display = 'block';
+                        if (apiKeyError) apiKeyError.style.display = 'inline-flex';
                       }
                       else if (response.items.length === 0) {
                         if (loadingContainer) loadingContainer.style.display = 'none';
-                        if (apiKeyError) apiKeyError.style.display = 'block';
+                        if (apiKeyError) apiKeyError.style.display = 'inline-flex';
                         setAPIKeyErrorText('Please make sure your environment has content types to export.');
                       }
                       else {
@@ -847,7 +1080,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                         fetchLanguages(environmentId, apiKey).then(async (response) => {
                           if (response === 'error') {
                             if (loadingContainer) loadingContainer.style.display = 'none';
-                            if (apiKeyError) apiKeyError.style.display = 'block';
+                            if (apiKeyError) apiKeyError.style.display = 'inline-flex';
                           }
                           else {
                             setLanguages(response.items);
@@ -886,6 +1119,37 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
           }
         });
       }
+
+      const languageCheckboxes = document.querySelectorAll('input[type="checkbox"].language-option');
+      const selectAllLanguageCheckbox = document.getElementById('select-all-languages');
+
+      if (languageCheckboxes.length > 0 && selectAllLanguageCheckbox) {
+        selectAllLanguageCheckbox.addEventListener('change', function() {
+          for (let i = 0; i < languageCheckboxes.length; i++) {
+            (languageCheckboxes[i] as HTMLInputElement).checked = (this as HTMLInputElement).checked;
+          }
+          const count = document.querySelectorAll('input[type="checkbox"].language-option:checked').length;
+          console.log('count 1', count);
+          
+          setMultipleLanguagesSelected(count > 1);
+        });
+      }
+
+      // Track changes on individual language checkboxes to update the warning visibility
+      if (languageCheckboxes.length > 0) {
+        const updateLanguageSelectedCount = () => {
+          const count = document.querySelectorAll('input[type="checkbox"].language-option:checked').length;
+          console.log('count', count);
+          setMultipleLanguagesSelected(count > 1);
+        };
+
+        languageCheckboxes.forEach(cb => {
+          cb.addEventListener('change', updateLanguageSelectedCount);
+        });
+
+        // Initialize on mount
+        updateLanguageSelectedCount();
+      }
     }
   }, [contextResponse, apiKey, environmentId, validAPIKey, elementFilterInputValues, oneContentTypeSelected])
 
@@ -902,8 +1166,13 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
       {
         validAPIKey === true ?
           <form className='basis-full relative flex flex-wrap place-content-start divide-y divide-solid divide-gray-300' onSubmit={(e) => handleSubmit(e, 'export')}>
-            <p id='no-items-error' className='hidden fixed bg-(--red) text-white px-2 py-[0.25rem] rounded-lg top-[72px] inset-x-[25%] z-10'>
-              No items are available with the selected filters. Please change your selected filters.
+            <p id='no-items-error' className='hidden fixed top-[72px] left-1/2 -translate-x-1/2 z-20 rounded-lg overflow-hidden whitespace-nowrap border-0'>
+              <span className='bg-(--red) text-white px-2 py-[0.25rem] inline-flex items-center flex-shrink-0 rounded-l-lg message-icon-section'>
+                <span className='error-icon'>⚠</span>
+              </span>
+              <span className='bg-gray-100 text-black px-2 py-[0.25rem] inline-flex items-center rounded-r-lg'>
+                No items were found with the selected filters.
+              </span>
             </p>
             {/* Content types */}
             <fieldset className='basis-full flex flex-wrap'>
@@ -914,26 +1183,35 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                       Content types
                       <span className='tooltip-icon' title='These are the content types of the items that will be exported.'>ⓘ</span>
                     </legend>
-                    <p id='content-type-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[165px] top-0'>
-                      Please select at least one content type.
+                    <p id='content-type-error' className='hidden absolute left-[165px] top-0 items-stretch rounded-lg overflow-hidden'>
+                      <span className='bg-(--red) text-white px-2 py-[0.25rem] items-center flex-shrink-0 message-icon-section'>
+                        <span className='error-icon'>⚠</span>
+                      </span>
+                      <span className='bg-gray-100 text-black px-2 py-[0.25rem] items-center'>
+                        Please select at least one content type.
+                      </span>
                     </p>
                   </div>
                 </summary>
                 <div className='basis-full flex mb-3 pl-10'>
-                  <label htmlFor='select-all-types' className='input-container flex place-items-center'>
-                    <input type='checkbox' className='mr-[8px] accent-(--purple)' id='select-all-types' value='select-all-types'/>
-                    Select all
-                  </label>
+                  <div className='basis-full relative'>
+                    <label htmlFor='select-all-types' className='input-container relative flex items-center'>
+                      <input type='checkbox' className='mr-[8px] accent-(--purple)' id='select-all-types' value='select-all-types'/>
+                      Select all
+                    </label>
+                  </div>
                 </div>
                 <div className='pl-18 flex flex-wrap'>
                 {
                   contentTypes !== null && contentTypes !== undefined ?
                       contentTypes.map((type, index) =>
                         <div className={`flex flex-wrap basis-full  ${index === contentTypes.length - 1 ? 'mb-6' : 'mb-3'}`} key={`${type.system.codename}-container`}>
-                          <label htmlFor={type.system.codename} className='input-container flex place-items-center mb-1.5'>
-                            <input type='checkbox' className='mr-[8px] accent-(--purple) content-type' id={type.system.codename} value={type.system.codename} onChange={() => handleTypeFilterSelection()}/>
-                            {type.system.name}
-                          </label>
+                          <div className='basis-full relative'>
+                            <label htmlFor={type.system.codename} className='input-container relative flex items-center mb-1.5'>
+                              <input type='checkbox' className='mr-[8px] accent-(--purple) content-type' id={type.system.codename} value={type.system.codename} onChange={() => handleTypeFilterSelection()}/>
+                              {type.system.name}
+                            </label>
+                          </div>
                         </div>
                       )
                   : <p>No content types found.</p>
@@ -947,23 +1225,81 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                 <summary className='basis-full'>
                   <div className='relative'>
                     <legend className='font-bold text-[16px] text-left section-heading'>
-                      Language
+                      Languages
                       <span className='tooltip-icon' title='These are the languages your content items can be exported in.'>ⓘ</span>
                     </legend>
-                    <p id='language-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[165px] top-0'>
-                      Please select a language.
+                    <p id='language-error' className='hidden absolute left-[165px] top-0 items-stretch rounded-lg overflow-hidden'>
+                      <span className='bg-(--red) text-white px-2 py-[0.25rem] items-center flex-shrink-0 message-icon-section'>
+                        <span className='error-icon'>⚠</span>
+                      </span>
+                      <span className='bg-gray-100 text-black px-2 py-[0.25rem] items-center'>
+                        Please select a language.
+                      </span>
                     </p>
+                    {showMultiLangAnnouncement && (
+                      <div className='absolute bottom-0 mt-2 left-[12rem] inline-flex items-stretch rounded-lg overflow-hidden z-10'>
+                        <div className='bg-(--green) text-white px-2 py-[0.25rem] inline-flex items-center flex-shrink-0 message-icon-section'>
+                          <span className='announcement-icon'>New!</span>
+                        </div>
+                        <div className='bg-gray-100 text-black px-2 py-[0.25rem] inline-flex items-center'>
+                          <span className='text-[12px] mr-2'>You can now select and export multiple languages at once.</span>
+                          <button
+                            type='button'
+                            className='delete-btn flex items-center justify-center bg-transparent border-none cursor-pointer p-0'
+                            onClick={handleCloseMultiLangAnnouncement}
+                            title='Close'
+                            aria-label='Close announcement'
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="size-7">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </summary>
-                <div className='flex flex-wrap pl-10'>
+                <div className='basis-full flex mb-3 pl-10'>
+                  <label htmlFor='select-all-languages' className='input-container flex place-items-center'>
+                    <input type='checkbox' className='mr-[8px] accent-(--purple)' id='select-all-languages' value='select-all-languages' onChange={(e) => handleSelectAllLanguages(e.currentTarget)} />
+                    Select all
+                  </label>
+                </div>
+                <div className='pl-18 flex flex-wrap'>
                 {
                   languages !== null && languages !== undefined  ?
                       languages.map((lang, index) =>
-                        <div className={`flex basis-full ${index === languages.length - 1 ? 'mb-6' : 'mb-3'}`} key={`${lang.system.codename}-container`}>
-                          <label htmlFor={lang.system.codename} className='input-container flex place-items-center'>
-                            <input type='radio' name='language' className='mr-[8px] accent-(--purple)' id={lang.system.codename} value={lang.system.codename} />
-                            {lang.system.name}
-                          </label>
+                        <div className={`flex flex-wrap basis-full  ${index === languages.length - 1 ? 'mb-6' : 'mb-3'}`} key={`${lang.system.codename}-container`}>
+                          <div className='basis-full relative'>
+                            <label htmlFor={lang.system.codename} className='input-container relative flex items-center mb-1.5'>
+                              <input type='checkbox' className='mr-[8px] accent-(--purple) language-option' id={lang.system.codename} value={lang.system.codename} onChange={() => handleLanguageCheckboxChange()} />
+                              {lang.system.name}
+                              <p id={`${lang.system.codename}-lang-error`} className='hidden ml-4 text-[12px]'>
+                                <span className='bg-(--red) text-white px-2 py-[0.25rem] inline-flex items-center flex-shrink-0 rounded-l-lg message-icon-section'>
+                                  <span className='error-icon'>⚠</span>
+                                </span>
+                                <span className='bg-gray-100 text-black px-2 py-[0.25rem] inline-flex items-center rounded-r-lg'>
+                                  No items were found.
+                                </span>
+                              </p>
+                              <p id={`${lang.system.codename}-no-content-all-skipped`} className='hidden ml-4 text-[12px]'>
+                                <span className='bg-(--warning-yellow) text-black px-2 py-[0.25rem] inline-flex items-center flex-shrink-0 rounded-l-lg message-icon-section'>
+                                  <span className='warning-icon'>!</span>
+                                </span>
+                                <span className='bg-gray-100 text-black px-2 py-[0.25rem] inline-flex items-center rounded-r-lg'>
+                                  All items found had no content. Select options from 'Item details' to export metadata-only rows.
+                                </span>
+                              </p>
+                              <p id={`${lang.system.codename}-some-no-content-skipped`} className='hidden ml-4 text-[12px]'>
+                                <span className='bg-(--warning-yellow) text-black px-2 py-[0.25rem] inline-flex items-center flex-shrink-0 rounded-l-lg message-icon-section'>
+                                  <span className='warning-icon'>!</span>
+                                </span>
+                                <span className='bg-gray-100 text-black px-2 py-[0.25rem] inline-flex items-center rounded-r-lg'>
+                                  Some items had no content and were skipped.
+                                </span>
+                              </p>
+                            </label>
+                          </div>
                         </div>
                       )
                   : <p>No languages found.</p>
@@ -982,8 +1318,13 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                         ⓘ
                       </span>
                     </legend>
-                    <p id='workflow-step-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[165px] top-0'>
-                      Please select a workflow step.
+                    <p id='workflow-step-error' className='hidden absolute left-[165px] top-0 items-stretch rounded-lg overflow-hidden'>
+                      <span className='bg-(--red) text-white px-2 py-[0.25rem] items-center flex-shrink-0 message-icon-section'>
+                        <span className='error-icon'>⚠</span>
+                      </span>
+                      <span className='bg-gray-100 text-black px-2 py-[0.25rem] items-center'>
+                        Please select a workflow step.
+                      </span>
                     </p>
                   </div>
                 </summary>
@@ -1054,6 +1395,19 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                   <fieldset className='basis-full flex flex-wrap place-items-center'>
                     <legend className='inline-block text-left text-[14px]'>
                       <span className='font-semibold'>Content type's elements</span>
+                      { multipleLanguagesSelected && oneContentTypeSelected.boolean ? (
+                        <span
+                          className='ml-2 inline-flex align-middle items-stretch rounded-lg overflow-hidden text-[12px]'
+                          title="Their values typically differ by language, so the exported content will likely only contain the language used for the filter's value. For example, if you have English and Spanish selected, and then filter by a text element with the value 'Hello', none of the Spanish variants will be exported because that element's value in the Spanish variants is 'Hola'."
+                        >
+                          <span className='bg-(--lighter-purple) text-black px-2 py-[0.25rem] inline-flex items-center flex-shrink-0 message-icon-section'>
+                            <span className='tooltip-icon-tiny'>ⓘ</span>
+                          </span>
+                          <span className='bg-gray-100 text-black px-2 py-[0.25rem] inline-flex items-center'>
+                            <span className='ml-1'>Text, rich text, and URL slug element filters aren't reliable with multiple languages selected.</span>
+                          </span>
+                        </span>
+                      ) : null }
                     </legend>
                     {
                       oneContentTypeSelected.boolean === false ?
@@ -1248,8 +1602,13 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                   File type
                   <span className='tooltip-icon' title='If you choose Excel, then your selected content types will be organized into their own worksheets and exported within a single workbook. If you choose CSV, then your selected content types will be contained within their own CSV files, and exported together as a ZIP file.'>ⓘ</span>
                 </legend>
-                <p id='file-type-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg left-[191.391px] top-0'>
-                  Please select a file type.
+                <p id='file-type-error' className='hidden absolute left-[191.391px] top-0 items-stretch rounded-lg overflow-hidden'>
+                  <span className='bg-(--red) text-white px-2 py-[0.25rem] inline-flex items-center flex-shrink-0 message-icon-section'>
+                    <span className='error-icon'>⚠</span>
+                  </span>
+                  <span className='bg-gray-100 text-black px-2 py-[0.25rem] inline-flex items-center'>
+                    Please select a file type.
+                  </span>
                 </p>
               </div>
               <div className='flex mb-3 basis-full'>
@@ -1284,8 +1643,13 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                   <span className='tooltip-icon' title="The environment ID of the environment you would like to export content from. This can be found under 'Environment settings', or as the value in the URL as shown: app.kontent.ai/<environment-id>.">ⓘ</span>
                   </label>
                   <input type='text' id='environment-id' name='environment-id' />
-                  <p id='environment-id-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg top-0 left-[160px]'>
-                  {environmentIdErrorText}
+                  <p id='environment-id-error' className='hidden absolute top-0 left-[160px] items-stretch rounded-lg overflow-hidden'>
+                  <span className='bg-(--red) text-white px-2 py-[0.25rem] inline-flex items-center flex-shrink-0 message-icon-section'>
+                    <span className='error-icon'>⚠</span>
+                  </span>
+                  <span className='bg-gray-100 text-black px-2 py-[0.25rem] inline-flex items-center'>
+                    {environmentIdErrorText}
+                  </span>
                 </p>
                 </div>
                 : null
@@ -1296,8 +1660,13 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                   <span className='tooltip-icon' title='Your key must have Content Preview enabled. If your environment has Secure Access enabled, then your key must have Secure Access enabled as well.'>ⓘ</span>
                 </label>
                 <input type='text' id='api-key' name='api-key' />
-                <p id='api-key-error' className='hidden absolute bg-(--red) text-white px-2 py-[0.25rem] rounded-lg top-0 left-[230px]'>
-                  {apiKeyErrorText}
+                <p id='api-key-error' className='hidden absolute top-0 left-[230px] items-stretch rounded-lg overflow-hidden'>
+                  <span className='bg-(--red) text-white px-2 py-[0.25rem] inline-flex items-center flex-shrink-0 message-icon-section'>
+                    <span className='error-icon'>⚠</span>
+                  </span>
+                  <span className='bg-gray-100 text-black px-2 py-[0.25rem] inline-flex items-center'>
+                    {apiKeyErrorText}
+                  </span>
                 </p>
               </div>
             </div>

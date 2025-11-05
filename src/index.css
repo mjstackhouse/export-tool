@@ -8,12 +8,20 @@
 @theme {
   --orange: rgb(250, 74, 25);
   --lighter-orange: rgb(255, 231, 224);
+  --warning-yellow: rgb(249, 166, 0);
   --purple: rgb(91, 79, 245);
   --darker-purple: rgb(59, 35, 241);
   --lighter-purple: rgb(222, 221, 253);
   --red: rgb(219, 0, 0);
   --darker-red: rgb(169, 0, 0);
   --lighter-black: rgb(21, 21, 21);
+  --green: rgb(0, 127, 81);
+  --light-gray: rgb(243, 243, 243);
+  --dark-gray: rgb(230, 230, 230);
+  --color-gray-100: rgb(243, 244, 246);
+  --color-gray-300: rgb(209, 213, 219);
+  --color-gray-400: rgb(156, 163, 175);
+  --color-gray-500: rgb(107, 114, 128);
 }
 
 html {
@@ -85,7 +93,7 @@ input {
 }
 
 input:focus, select:focus {
-  border-color: var(--orange);
+  border-color: var(--lighter-black);
   outline: none;
 }
 
@@ -95,7 +103,7 @@ input:not([type="text"]):hover {
 
 input[type="text"], input[type="date"], input[type="number"], select {
   flex-basis: 100%;
-  border: 1px solid var(--color-gray-500);
+  border: 1px solid var(--color-gray-400);
   border-radius: 9999px;
   padding: 0.25rem 0.5rem;
 }
@@ -108,8 +116,8 @@ select {
   font-size: 14px;
 }
 
-input[type="text"]:focus {
-  border: 1px solid var(--orange);
+input[type="text"]:focus, input[type="text"]:hover {
+  border: 1px solid var(--lighter-black);
 }
 
 input[type="radio"] {
@@ -121,6 +129,7 @@ input[type="radio"], input[type="checkbox"] {
 }
 
 .input-container {
+  width: 100%;
   height: 32px;
   padding: 8px;
   border-radius: 4px;
@@ -130,18 +139,45 @@ input[type="radio"], input[type="checkbox"] {
   background-color: var(--lighter-purple);
 }
 
-summary::marker {
-  font-size: 16px;
-  color: var(--orange);
-  margin-right: 1rem;
-}
-
-details > .type-filters-summary {
+summary {
   list-style: none;
 }
 
-details > .type-filters-summary::-webkit-details-marker {
+summary::-webkit-details-marker {
   display: none;
+}
+
+details > summary {
+  transition: background 0.2s;
+  padding: 12px 8px;
+  /* height: 100%; */
+  box-sizing: border-box;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+details > summary::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) rotate(0deg);
+  width: 24px;
+  height: 24px;
+  margin-left: 4px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1' stroke='%23151515'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5' /%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  transition: transform 0.2s ease;
+  color: var(--lighter-black);
+  pointer-events: none;
+  z-index: 1;
+}
+
+details[open] > summary::before {
+  transform: translateY(-50%) rotate(180deg);
 }
 
 summary > div {
@@ -154,7 +190,8 @@ summary {
 }
 
 summary:hover {
-  background-color: var(--lighter-orange);
+  background-color: var(--dark-gray);
+  cursor: pointer;
 }
 
 .section-heading {
@@ -177,7 +214,7 @@ label:not(.type-filters) {
   gap: 6px;
   font-size: 14px;
   border-radius: 9999px;
-  border: 1px solid var(--color-gray-500);
+  border: 1px solid var(--color-gray-400);
   background-color: white;
   padding: 0.25rem 0.5rem;
   padding: 4px 8px;
@@ -247,7 +284,58 @@ summary.custom-radio.selected:hover {
   padding: 1px 2.25px;
 }
 
-.tooltip-icon:hover, .tooltip-icon-small:hover {
+/* Tiny variant for inline warning pills */
+.tooltip-icon-tiny {
+  /* width: 17px; */
+  /* height: 17px; */
+  font-size: 13px;
+  /* display: inline-flex; */
+  /* align-items: center; */
+  /* justify-content: center; */
+  border-radius: 4px;
+  margin-left: 0; /* no extra left spacing when leading inside pills */
+  line-height: 1;
+  padding: 3px 2.25px;
+}
+
+/* Error icon variant for error messages */
+.error-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  font-size: 16px;
+  transform: translateY(1px);
+}
+
+
+/* Warning icon variant for warning messages (no tooltip) */
+.warning-icon {
+  width: 10px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+/* Consistent width for colored background sections in error/warning messages */
+.message-icon-section {
+  min-width: 32px; /* Ensures consistent width for icon sections */
+  justify-content: center; /* Centers icon within the fixed width */
+}
+
+.tooltip-icon:hover, .tooltip-icon-small:hover, .tooltip-icon-tiny:hover {
   background-color: rgba(21, 21, 21, 0.1);
 }
 
