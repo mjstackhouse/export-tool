@@ -398,12 +398,12 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                 if (currentItems.length > 0) {
                   let currentKeys;
 
-                  if (selectedAdditionalData) currentKeys = [...selectedAdditionalData];
+                  if (selectedAdditionalData.length > 0) currentKeys = [...selectedAdditionalData];
       
                   // Some of the below logic comes from: https://stackoverflow.com/a/64213063
-                  if (items.length > 1 && selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
+                  if (items.length > 1 && selectedAdditionalData.length > 0) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
                   else if (items.length > 1) currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
-                  else currentKeys = [items[i].map(obj => Object.entries(obj)[0][0])];
+                  else currentKeys = [selectedAdditionalData.concat(items[i].map(obj => Object.entries(obj)[0][0]))];
 
                   currentWorksheet = XLSX.utils.book_new();
 
@@ -419,7 +419,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                 if (currentItems.length > 0) {
                   let currentKeys;
 
-                  if (selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
+                  if (selectedAdditionalData.length > 0) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
                   else currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
 
                   currentWorksheet = XLSX.utils.book_new();
@@ -463,7 +463,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                 if (currentItems.length > 0) {
                   let currentKeys = [];
 
-                  if (selectedAdditionalData) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
+                  if (selectedAdditionalData.length > 0) currentKeys = [selectedAdditionalData.concat(items[i - 1].map(obj => Object.entries(obj)[0][0]))];
                   else currentKeys = [items[i - 1].map(obj => Object.entries(obj)[0][0])];
 
                   currentWorksheet = XLSX.utils.book_new();
