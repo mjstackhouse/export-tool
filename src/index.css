@@ -313,6 +313,19 @@ summary.custom-radio.selected:hover {
   transform: translateY(1px);
 }
 
+/* Success icon variant for success messages (same size as the error icon) */
+.success-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: bold;
+}
 
 /* Warning icon variant for warning messages (no tooltip) */
 .warning-icon {

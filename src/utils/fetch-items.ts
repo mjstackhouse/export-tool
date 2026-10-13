@@ -13,7 +13,7 @@ type FilterMethod = (
   secondValue?: string | Array<string>
 ) => MultipleItemsQuery;
 
-export default async function fetchItems(environmentId: string, apiKey: string, types: Array<string>, language: string, workflowStep: string, lastModified?: LastModified, itemName?: string, collection?: string, elementsToFilter?: (string | string[])[][] | undefined) {
+export default async function fetchItems(environmentId: string, apiKey: string, types: Array<string>, language: string, workflowStep: string, lastModified?: LastModified, itemName?: string, collection?: string, elementsToFilter?: (string | string[])[][] | undefined, onProgress?: (fetchedCount: number, totalCount: number | null) => void) {
   let deliveryClient = createDeliveryClientContainer(environmentId, apiKey);
 
   let query = deliveryClient.items()
@@ -23,6 +23,7 @@ export default async function fetchItems(environmentId: string, apiKey: string, 
     .equalsFilter('system.language', language)
     .limitParameter(2000)
     .depthParameter(0)
+    .includeTotalCountParameter()
   
   if (lastModified) {
     if (!lastModified.value.includes('')) {
@@ -59,6 +60,9 @@ export default async function fetchItems(environmentId: string, apiKey: string, 
   }
 
   let response = await query.toPromise();
+  const totalCount = response.data.pagination.totalCount;
+
+  if (onProgress) onProgress(response.data.items.length, totalCount);
 
   type APIResponseType = typeof response;
 
@@ -71,6 +75,8 @@ export default async function fetchItems(environmentId: string, apiKey: string, 
     for (let i = 0; i < newResponse.data.items.length; i++) {
       previousResponse.data.items.push(newResponse.data.items[i]);
     }
+
+    if (onProgress) onProgress(previousResponse.data.items.length, totalCount);
   
     if (newResponse.data.pagination.nextPage !== '') {
       return await fetchWithPagination(query, previousResponse, newResponse.data.pagination.nextPage);
