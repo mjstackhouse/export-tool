@@ -9,6 +9,7 @@ import secureAccessTest from './utils/secure-access-test';
 import { canPickDirectory, pickDirectory, writeFileToDirectory, yieldToBrowser } from './utils/save-to-directory';
 import { createZipBlob, downloadBlob, EXPORT_PART_BYTE_BUDGET, ExportFile, getTotalBytes } from './utils/export-files';
 import { ExcelCellLimitError, findValuesTooLongForExcel } from './utils/excel-cell-limit';
+import { formatDuration, logExportTiming, logTabVisibilityChanges } from './utils/export-timing';
 import previewTest from './utils/preview-test';
 import { filteringOperators } from './utils/filtering-operators';
 
@@ -279,6 +280,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
         // Languages whose files have already been saved to a folder or downloaded as a ZIP part
         const savedLanguageNames: Array<string> = [];
         let selectedDirectory: FileSystemDirectoryHandle | null = null;
+        let stopLoggingTabVisibility: (() => void) | null = null;
 
         try {
           const types: Array<string>= [];
@@ -365,6 +367,10 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
           const loadingContainer = document.getElementById('loading-container') as HTMLElement;
           if (loadingContainer) loadingContainer.style.display = 'flex';
 
+          const exportStartTime = performance.now();
+          logExportTiming(`Export started (${languageCount} ${languageCount === 1 ? 'language' : 'languages'}, ${selectedFileType === 'excel' ? 'Excel' : 'CSV'}, ${selectedDirectory ? 'saving to a folder' : 'downloading as a ZIP'})`);
+          stopLoggingTabVisibility = logTabVisibilityChanges();
+
           // Track skipped items (no content) across all languages
           let totalFoundAcrossLangs = 0;
           let totalExportedAcrossLangs = 0;
@@ -391,10 +397,18 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
             const langDisplayName = langObj?.system.name || langCode;
 
             showExportProgress(langDisplayName, langIndex, 'Fetching content items...');
+            const fetchStartTime = performance.now();
 
             const data = await fetchItems(environmentId, apiKey, types, langCode, selectedWorkflowStep.value, { value: lastModified, filter: selectedLastModifiedOperator.value }, itemName, collection, elementsToFilter, (fetchedCount, totalCount) => {
               showExportProgress(langDisplayName, langIndex, `Fetched ${fetchedCount.toLocaleString()}${totalCount ? ` of ${totalCount.toLocaleString()}` : ''} content items...`);
             });
+
+            const fetchEndTime = performance.now();
+            const languageTimingLabel = `${langDisplayName} (${langIndex + 1} of ${languageCount})`;
+
+            if (data.items.length === 0) {
+              logExportTiming(`${languageTimingLabel}: no items found (fetched in ${formatDuration(fetchEndTime - fetchStartTime)})`);
+            }
 
             if (data.items.length > 0) {
               showExportProgress(langDisplayName, langIndex, `Building the ${selectedFileType === 'excel' ? 'Excel file' : 'CSV files'}...`);
@@ -577,6 +591,8 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                       contents: new TextEncoder().encode(XLSX.utils.sheet_to_csv(langWorkbook.Sheets[sheetName]))
                     }));
 
+                const buildEndTime = performance.now();
+
                 if (selectedDirectory) {
                   for (const file of languageFiles) {
                     await writeFileToDirectory(selectedDirectory, file.path, file.contents);
@@ -592,6 +608,8 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                   pendingFiles.push(...languageFiles);
                   pendingLanguageNames.push(langDisplayName);
                 }
+
+                logExportTiming(`${languageTimingLabel}: fetched ${data.items.length.toLocaleString()} items in ${formatDuration(fetchEndTime - fetchStartTime)}, built in ${formatDuration(buildEndTime - fetchEndTime)}, ${selectedDirectory ? 'saved' : 'added to the ZIP'} in ${formatDuration(performance.now() - buildEndTime)}`);
               }
             
               // Mark this language as having items found
@@ -702,6 +720,8 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
             }
           }
 
+          logExportTiming(`Export finished in ${formatDuration(performance.now() - exportStartTime)}`);
+
           if (downloadedParts.length > 0) {
             setExportSuccessText(`Export complete. Because of its size, it was split into ${downloadedParts.length} ZIP files to avoid browser memory limits.`);
 
@@ -729,6 +749,8 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
           showExportResultMessage('export-error');
         }
         finally {
+          if (stopLoggingTabVisibility) stopLoggingTabVisibility();
+
           const loadingContainer = document.getElementById('loading-container') as HTMLElement;
           if (loadingContainer) loadingContainer.style.display = 'none';
 
