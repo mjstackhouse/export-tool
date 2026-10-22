@@ -54,6 +54,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
   const [loadingText, setLoadingText] = useState<ReactNode>('Checking custom app configuration...');
   const [exportErrorText, setExportErrorText] = useState<ReactNode>('');
   const [exportSuccessText, setExportSuccessText] = useState<string>('');
+  const [showBackgroundTabNote, setShowBackgroundTabNote] = useState<boolean>(false);
   const [exportBtnText, setExportBtnText] = useState<string>('Export content');
   const [backBtnText, setBackBtnText] = useState<string>('Change API key');
   const [validAPIKey, setValidAPIKey] = useState<boolean>(false);
@@ -370,6 +371,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
           const exportStartTime = performance.now();
           logExportTiming(`Export started (${languageCount} ${languageCount === 1 ? 'language' : 'languages'}, ${selectedFileType === 'excel' ? 'Excel' : 'CSV'}, ${selectedDirectory ? 'saving to a folder' : 'downloading as a ZIP'})`);
           stopLoggingTabVisibility = logTabVisibilityChanges();
+          setShowBackgroundTabNote(languageCount > 1);
 
           // Track skipped items (no content) across all languages
           let totalFoundAcrossLangs = 0;
@@ -658,6 +660,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                 if (perLangError) {
                   perLangError.style.display = 'inline-flex';
                   perLangError.style.alignItems = 'stretch';
+                  openParentSection(perLangError);
                   if (!firstErrorElement) firstErrorElement = perLangError;
                 }
               }
@@ -682,6 +685,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                 if (allSkippedWarning) {
                   allSkippedWarning.style.display = 'inline-flex';
                   allSkippedWarning.style.alignItems = 'stretch';
+                  openParentSection(allSkippedWarning);
                   if (!firstWarningElement) firstWarningElement = allSkippedWarning;
                 }
               }
@@ -691,6 +695,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                 if (someSkippedWarning) {
                   someSkippedWarning.style.display = 'inline-flex';
                   someSkippedWarning.style.alignItems = 'stretch';
+                  openParentSection(someSkippedWarning);
                   if (!firstWarningElement) firstWarningElement = someSkippedWarning;
                 }
               }
@@ -722,15 +727,18 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
 
           logExportTiming(`Export finished in ${formatDuration(performance.now() - exportStartTime)}`);
 
+          // Per-language errors and warnings take priority, so the success message only scrolls into view when there are none
+          const hasLanguageMessages = firstErrorElement !== null || firstWarningElement !== null;
+
           if (downloadedParts.length > 0) {
             setExportSuccessText(`Export complete. Because of its size, it was split into ${downloadedParts.length} ZIP files to avoid browser memory limits.`);
 
-            showExportResultMessage('export-success');
+            showExportResultMessage('export-success', !hasLanguageMessages);
           }
           else if (selectedDirectory && savedLanguageNames.length > 0) {
             setExportSuccessText(`Export complete. Saved ${savedLanguageNames.length} ${savedLanguageNames.length === 1 ? 'language' : 'languages'} to the "${exportFolderName}" folder inside "${selectedDirectory.name}".`);
 
-            showExportResultMessage('export-success');
+            showExportResultMessage('export-success', !hasLanguageMessages);
           }
         }
         catch (error) {
@@ -750,6 +758,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
         }
         finally {
           if (stopLoggingTabVisibility) stopLoggingTabVisibility();
+          setShowBackgroundTabNote(false);
 
           const loadingContainer = document.getElementById('loading-container') as HTMLElement;
           if (loadingContainer) loadingContainer.style.display = 'none';
@@ -762,13 +771,22 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
     }
   }
 
-  function showExportResultMessage(id: 'export-error' | 'export-success') {
+  function showExportResultMessage(id: 'export-error' | 'export-success', scrollIntoView = true) {
     const message = document.getElementById(id) as HTMLElement;
     if (!message) return;
 
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     message.style.display = 'flex';
-    message.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
+
+    if (scrollIntoView) {
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      message.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'instant' : 'smooth', block: 'start', inline: 'start' });
+    }
+  }
+
+  // Per-language messages sit inside the collapsible Languages section, so it's opened to make sure they're visible
+  function openParentSection(element: HTMLElement) {
+    const section = element.closest('details');
+    if (section) section.open = true;
   }
 
   function hideExportResultMessages() {
@@ -1303,6 +1321,12 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
           <div className='basis-full flex flex-wrap place-content-center'>
             <div id='loading-general-text' className='basis-full mb-3' role='status' aria-live='polite'>{loadingText}</div>
             <span id='loading-general' className='loading-span text-6xl'></span>
+            {/* Kept outside the live region above, so screen readers announce it once rather than with every progress update */}
+            {showBackgroundTabNote && (
+              <p className='basis-full mt-6 text-[12px] text-gray-600'>
+                For the fastest export, keep this tab in view. Switching tabs or minimizing your browser can slow it down.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -1800,7 +1824,7 @@ export default function RequestBuilder({ contextResponse, workbook }: RequestBui
                   Delivery Preview API key
                   <span className='tooltip-icon' title='Your key must have Content Preview enabled. If your environment has Secure Access enabled, then your key must have Secure Access enabled as well.'>ⓘ</span>
                 </label>
-                <input type='text' id='api-key' name='api-key' />
+                <input type='password' id='api-key' name='api-key' />
                 <p id='api-key-error' className='hidden absolute top-0 left-[230px] items-stretch rounded-lg overflow-hidden'>
                   <span className='bg-(--red) text-white px-2 py-[0.25rem] inline-flex items-center flex-shrink-0 message-icon-section'>
                     <span className='error-icon'>⚠</span>

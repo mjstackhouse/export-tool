@@ -97,11 +97,11 @@ input:focus, select:focus {
   outline: none;
 }
 
-input:not([type="text"]):hover {
+input:not([type="text"]):not([type="password"]):hover {
   cursor: pointer;
 }
 
-input[type="text"], input[type="date"], input[type="number"], select {
+input[type="text"], input[type="password"], input[type="date"], input[type="number"], select {
   flex-basis: 100%;
   border: 1px solid var(--color-gray-400);
   border-radius: 9999px;
@@ -116,7 +116,7 @@ select {
   font-size: 14px;
 }
 
-input[type="text"]:focus, input[type="text"]:hover {
+input[type="text"]:focus, input[type="text"]:hover, input[type="password"]:focus, input[type="password"]:hover {
   border: 1px solid var(--lighter-black);
 }
 
